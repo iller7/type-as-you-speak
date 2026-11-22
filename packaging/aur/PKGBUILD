@@ -26,7 +26,9 @@ depends=(
 makedepends=(python-pip)
 
 source=("$pkgname-$pkgver.tar.gz::https://github.com/iller7/type-as-you-speak/archive/refs/tags/v$pkgver.tar.gz")
-sha256sums=(TODO_FILL_IN_AFTER_TAG)
+# Hash of the v0.5.0 tarball (recompute after any pkgver bump:
+#   curl -sL https://github.com/iller7/type-as-you-speak/archive/refs/tags/v<ver>.tar.gz | sha256sum)
+sha256sums=('6b20ef17cace6ce399f7768f858b2adc16aa7e2363e8736cb6ca96ef1575c1e8')
 
 build() {
   cd "$pkgname-$pkgver"
