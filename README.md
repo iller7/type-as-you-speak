@@ -112,6 +112,7 @@ tays stop      # stop the running session (commits pending text, unmutes)
 tays toggle    # one-key: stop if running, else start — bind THIS to your Dictation key
 tays status    # show state + the model/device in use + recent log
 tays setup     # check requirements, enable the daemon, write a sample config
+tays keybind   # print copy-paste steps to bind a Dictation key for your desktop
 ```
 
 **Typical day:** bind your Logitech **Dictation** key (or any spare key) to
@@ -120,6 +121,9 @@ while the mic is live so you don't hear yourself; it's unmuted the moment the
 session ends.
 
 ### Bind the key
+
+Easiest: `tays keybind` prints the exact steps for your desktop (auto-detects
+KDE/GNOME/Sway/…; `--de <name>` to pick one).
 
 - **OpenLogi:** the `KeyDictation` action → *Run shell command* → `tays toggle`.
 - **KDE:** *System Settings → Keyboard → Custom Shortcuts* → new shortcut,
