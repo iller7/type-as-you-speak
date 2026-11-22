@@ -98,13 +98,16 @@ say "Setting up the Python environment ($VENV)"
 if [ ! -x "$VENV/bin/python" ]; then
   "$PY" -m venv "$VENV"
 fi
-# upgrade pip quietly, then install the package from this repo
+# Install the package in EDITABLE mode: the venv holds only the dependencies,
+# and `tays` runs the code straight from this repo (single source of truth).
+# That means editing the repo — or just `git pull` — updates the tool
+# immediately, with no code copy to drift out of sync.
 "$VENV/bin/python" -m pip install --quiet --upgrade pip 2>/dev/null || true
-"$VENV/bin/python" -m pip install --quiet "$SCRIPT_DIR" || {
+"$VENV/bin/python" -m pip install --quiet -e "$SCRIPT_DIR" || {
   fail "failed to install the package into the venv"; exit 1; }
 "$VENV/bin/tays" --version >/dev/null 2>&1 || {
   fail "the 'tays' command failed to run after install"; exit 1; }
-ok "installed type-as-you-speak ($("$VENV/bin/tays" --version 2>/dev/null | sed 's/^.* //'))"
+ok "installed type-as-you-speak ($("$VENV/bin/tays" --version 2>/dev/null | sed 's/^.* //')), editable from $SCRIPT_DIR"
 
 # GPU runtime: ctranslate2's CUDA build expects the NVIDIA cuBLAS / cuDART /
 # nvRTC libraries, but faster-whisper does not declare them as dependencies —
@@ -212,4 +215,5 @@ echo "  Bind your Dictation key to run:   tays toggle"
 echo "    OpenLogi: KeyDictation action -> run command: tays toggle"
 echo "    KDE:     System Settings > Keyboard > Custom shortcut > 'tays toggle'"
 echo
-echo "  To update later: git pull && ./install.sh"
+echo "  To update later: git pull  (it's an editable install, so new code applies immediately)"
+echo "  Re-run ./install.sh only if you also want to refresh the dependencies."
