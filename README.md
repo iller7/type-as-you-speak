@@ -25,6 +25,18 @@ works on any Wayland compositor.
 
 ---
 
+## Demo
+
+_A screen-capture GIF is coming soon._
+
+<!-- When a demo is ready, drop `docs/demo.gif` (or a screenshot) in the repo
+     and replace the line above with, e.g.:
+
+     ![type-as-you-speak in action](docs/demo.gif)
+-->
+
+---
+
 ## Requirements
 
 | What | Why | Install |
