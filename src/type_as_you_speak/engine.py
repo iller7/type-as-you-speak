@@ -64,6 +64,62 @@ CHUNK_BYTES = int(CHUNK_SAMPLES) * 4
 WHISPER_HALLUCINATION_TAILS = list(CFG["hallucination_tails"])
 # -----------------------------------------------------------------------------
 
+
+def norm(s):
+    """Collapse any whitespace runs to single spaces."""
+    return " ".join(s.split())
+
+
+def _wordkey(x):
+    """Normalise a word for comparison: lowercase, keep [a-z0-9] and apostrophes."""
+    return re.sub(r"[^a-z0-9']", "", x.lower())
+
+
+def clean_hallucinations(text):
+    """Strip Whisper hallucinations before typing:
+
+    (1) stock "closing" phrases — Whisper inserts these *anywhere* it wants (it
+        splices them mid-stream, not only at the end), so every contiguous
+        occurrence is removed. Longest-first, so "i'll see you in the next
+        video" wins over its suffix "see you in the next video" (no dangling
+        word left behind).
+    (2) a trailing exact "X X" repeat (the last K words duplicate the K before).
+
+    Called at the single commit point, so it catches both the main transcribe
+    pass and the tail-recovery re-transcribe.
+    """
+    words = norm(text).split()
+    if not words:
+        return ""
+
+    # (1) remove stock hallucination phrases wherever they occur.
+    tails = [[_wordkey(w) for w in p.split()] for p in WHISPER_HALLUCINATION_TAILS]
+    tails.sort(key=len, reverse=True)
+    changed = True
+    while changed and words:
+        changed = False
+        keys = [_wordkey(w) for w in words]
+        for t in tails:
+            if not t or len(t) > len(keys):
+                continue
+            for i in range(len(keys) - len(t) + 1):
+                if keys[i:i + len(t)] == t:
+                    words = words[:i] + words[i + len(t):]
+                    changed = True
+                    break
+            if changed:
+                break
+
+    # (2) dedup a trailing exact repeat: "X X" -> "X" (K words, K >= 2)
+    n = len(words)
+    if n:
+        keys = [_wordkey(w) for w in words]
+        for k in range(n // 2, 1, -1):
+            if keys[-k:] == keys[-2 * k:-k]:
+                words = words[:-k]
+                break
+    return " ".join(words)
+
 _stop = {"flag": False}
 
 
@@ -379,12 +435,6 @@ def run_session(reader, t0):
         probs = vad(arr)
         return float(np.mean(probs))
 
-    def norm(s):
-        return " ".join(s.split())
-
-    def _wordkey(x):
-        return re.sub(r"[^a-z0-9']", "", x.lower())
-
     def strip_echo(prompt_text, text):
         """Drop leading words of `text` that merely repeat the prompt tail.
         Whisper primed with context either re-emits the prompt or skips over
@@ -399,40 +449,6 @@ def run_session(reader, t0):
             if fw[:k] == pw[-k:]:
                 return " ".join(words[k:])
         return text
-
-    def clean_hallucinations(text):
-        """Strip Whisper end-of-speech hallucinations before typing:
-        (1) trailing stock phrases (WHISPER_HALLUCINATION_TAILS),
-        (2) a trailing exact "X X" repeat (last K words duplicate the K before).
-        Called at the single commit point, so it catches both the main
-        transcribe pass and the tail-recovery re-transcribe."""
-        words = norm(text).split()
-        if not words:
-            return ""
-        keys = [_wordkey(w) for w in words]
-
-        # (1) strip one or more trailing stock hallucination phrases.
-        #     Longest-first, so "i'll see you in the next video" wins over its
-        #     suffix "see you in the next video" (no dangling "I'll" left).
-        tails = [[_wordkey(w) for w in p.split()] for p in WHISPER_HALLUCINATION_TAILS]
-        tails.sort(key=len, reverse=True)
-        for _ in range(3):
-            hit = next((t for t in tails
-                        if t and len(t) <= len(keys) and keys[-len(t):] == t), None)
-            if hit is None:
-                break
-            words = words[:-len(hit)]
-            keys = keys[:-len(hit)]
-            if not keys:
-                return ""
-
-        # (2) dedup a trailing exact repeat: "X X" -> "X" (K words, K >= 2)
-        n = len(words)
-        for k in range(n // 2, 1, -1):
-            if keys[-k:] == keys[-2 * k:-k]:
-                words = words[:-k]
-                break
-        return " ".join(words)
 
     def silence_bounds(audio, min_speech_s=0.5):
         """Sample range of the speech region (with small margins), or None if
