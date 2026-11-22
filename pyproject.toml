@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "type-as-you-speak"
-version = "0.1.1"
-description = "Mac-like, type-as-you-speak dictation for Linux (Wayland): speak and the words are typed into the focused window as you talk."
+version = "0.2.0"
+description = "Mac-like, type-as-you-speak dictation for Linux (Wayland & X11): speak and the words are typed into the focused window as you talk."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "AGPL-3.0-only"
 authors = [{ name = "Faizal Sahebdin", email = "iller7@gmail.com" }]
-keywords = ["dictation", "speech-to-text", "whisper", "wayland", "linux", "asr"]
+keywords = ["dictation", "speech-to-text", "whisper", "wayland", "x11", "linux", "asr"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: POSIX :: Linux",
