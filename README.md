@@ -54,21 +54,23 @@ cd type-as-you-speak
 ```
 
 `install.sh` is idempotent and does all the safe, user-owned setup: creates a
-venv, installs the Python package, puts `tays` on your PATH, makes sure the
-ydotool daemon (a systemd **user** service) is running, and drops a sample
-config. It never uses `sudo` — any OS package you're missing is printed with
-the exact install command.
+venv, installs the Python package **in editable mode** (so this repo stays the
+single source of truth — `git pull` updates the tool with no reinstall), puts
+`tays` on your PATH, makes sure the ydotool daemon (a systemd **user** service)
+is running, and drops a sample config. It never uses `sudo` — any OS package
+you're missing is printed with the exact install command.
 
 ### Option B — `pipx` / `pip`
 
 ```bash
 pipx install "git+https://github.com/iller7/type-as-you-speak.git"
-# or, for a system-wide editable install:
-pip install "git+https://github.com/iller7/type-as-you-speak.git"
+# or, into your own venv:
+python3 -m venv .venv && .venv/bin/pip install "git+https://github.com/iller7/type-as-you-speak.git"
 ```
 
 This gets you the `tays` command. You still need the OS prerequisites above
-(especially **ydotool + its daemon**) — `pip` can't set those up.
+(especially **ydotool + its daemon**) — `pip` can't set those up, so prefer
+`install.sh` if you want it all handled.
 
 ### Verify
 
@@ -76,6 +78,17 @@ This gets you the `tays` command. You still need the OS prerequisites above
 tays setup     # re-checks requirements and reports anything missing
 tays status    # is a session running? on which model?
 ```
+
+### Update
+
+Because `install.sh` installs in editable mode, updating is just:
+
+```bash
+cd type-as-you-speak && git pull
+```
+
+New code applies immediately. Re-run `./install.sh` only if you also want to
+refresh the Python dependencies.
 
 ---
 
