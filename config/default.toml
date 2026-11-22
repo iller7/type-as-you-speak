@@ -1,0 +1,88 @@
+# type-as-you-speak — default configuration
+# -----------------------------------------
+# Copy this file to:
+#     ~/.config/type-as-you-speak/config.toml
+# (the `tays setup` command does it for you) and edit to taste. Every key is
+# optional — anything you leave out falls back to the value shown here.
+#
+# Quick per-run overrides (no file edit needed), e.g.:
+#     DICTATE_DEVICE=cpu  DICTATE_MODEL=small.en  tays start
+
+# ---- model & where it runs ----------------------------------------------------
+# Any faster-whisper model: medium.en, small.en, base.en, large-v3, large-v3-turbo, …
+# (the .en variants are English-only and fastest/most accurate for English)
+model_name = "medium.en"
+
+# Language code for Whisper.
+language = "en"
+
+# Device:
+#   "auto" — use the GPU if it can hold a model, else fall back to CPU (default)
+#   "cuda" — force the GPU (fail clearly if none is usable)
+#   "cpu"  — force CPU, never touch the GPU (slower)
+device = "auto"
+
+# Cap CTranslate2's CPU-side threads on the GPU model. Narrows the brief per-
+# round CPU burst; the GPU does the real work so this barely costs speed.
+# (Ignored on a CPU model, where the threads *are* the compute.)
+cpu_threads = 2
+
+# ---- typing -------------------------------------------------------------------
+# ydotool milliseconds per key. Raise to 10 if some apps drop characters.
+type_ms = 5
+
+# ---- streaming (Mac-like) behaviour -------------------------------------------
+# Audio chunk size (loop pacing). Leave at 0.3.
+chunk_s = 0.3
+
+# Mean Silero probability (0..1) that counts as speech. Leave at 0.5.
+vad_threshold = 0.5
+
+# Re-transcribe the pending audio this often while you keep talking (seconds).
+transcribe_every_s = 0.9
+
+# How much recent audio to hold uncommitted so tail words finalise with full
+# sentence context. This is the "words land a beat after you say them, and
+# never change" lag. Lower = snappier but slightly less polished; higher = the
+# opposite.
+commit_lag_s = 1.2
+
+# After this much silence, commit the remaining tail (end-of-sentence
+# punctuation lands here).
+silence_commit_s = 1.0
+
+# Don't transcribe less than this much pending audio (seconds).
+min_pending_s = 0.7
+
+# Safety cap: if pending audio keeps growing past this, force progress.
+max_pending_s = 8.0
+
+# How many already-committed words to feed back as context, so Whisper continues
+# your sentence instead of restarting it.
+prompt_tail_words = 12
+
+# Safety cap only: a forgotten session can't mute your output forever (seconds).
+max_session_s = 600.0
+
+# Keep at most this much audio buffered while the model loads (seconds).
+prebuf_cap_s = 15.0
+
+# ---- Whisper "end-of-speech" hallucinations -----------------------------------
+# On trailing silence Whisper emits a stock closing line (or re-emits your last
+# phrase). Any *trailing* phrase in this list is stripped before it's typed.
+# Add any you spot, one per line (lowercase, no punctuation).
+hallucination_tails = [
+    "thanks for watching",
+    "thank you for watching",
+    "don't forget to subscribe",
+    "dont forget to subscribe",
+    "don't forget to like the video",
+    "subscribe to my channel",
+    "hope you enjoyed this video",
+    "see you in the next video",
+    "i'll see you in the next video",
+    "ill see you in the next video",
+    "see you in the next one",
+    "see you next time",
+    "voice to text",
+]

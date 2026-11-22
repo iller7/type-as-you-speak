@@ -1,0 +1,648 @@
+#!/usr/bin/env python3
+"""Live dictation session: types into the focused window as you speak.
+
+Flow (streaming, Mac-like):
+  1. start mic capture (audio is buffered while the model loads)
+  2. load Whisper model (GPU, CPU fallback) + warm up
+  3. loop over ~0.3 s chunks:
+       - VAD marks speech vs silence
+       - heard-but-uncommitted audio is re-transcribed every ~0.9 s
+       - only words older than COMMIT_LAG_S are typed: they have finalised
+         with full sentence context, so they never change and punctuation
+         lands at real sentence ends
+       - already-typed words seed the next transcription as context, so the
+         model continues your sentence instead of restarting it
+  4. stays open (output muted) until the dictation key is pressed again,
+     or the 10-minute safety cap is reached
+  5. on stop, commit anything pending, then exit
+
+Test hook: set DICTATE_WAV=/path/to.wav to read that file instead of the mic
+(same chunk loop, same VAD/flush/stop logic).
+"""
+import ctypes
+import os
+import re
+import signal
+import site
+import subprocess
+import sys
+import threading
+import time
+
+# ---- configuration ----------------------------------------------------------
+# All tunables live in config.py (defaults in config/default.toml), overridable
+# by the user config file or DICTATE_* env vars. Loaded once at import so the
+# rest of this file can keep reading plain module globals.
+try:
+    from . import config as _cfgmod
+except ImportError:      # also allow running the file directly
+    import config as _cfgmod
+
+CFG = _cfgmod.load_config()
+
+MODEL_NAME = CFG["model_name"]                  # any faster-whisper model
+LANG = CFG["language"]
+TYPE_MS = int(CFG["type_ms"])                   # ydotool ms per key
+CHUNK_S = float(CFG["chunk_s"])                 # audio chunk size (loop pacing)
+VAD_THRESHOLD = float(CFG["vad_threshold"])     # mean Silero prob that is speech
+TRANSCRIBE_EVERY_S = float(CFG["transcribe_every_s"])  # re-transcribe cadence
+COMMIT_LAG_S = float(CFG["commit_lag_s"])       # words finalise with sentence context
+SILENCE_COMMIT_S = float(CFG["silence_commit_s"])
+MIN_PENDING_S = float(CFG["min_pending_s"])
+MAX_PENDING_S = float(CFG["max_pending_s"])
+PROMPT_TAIL_WORDS = int(CFG["prompt_tail_words"])
+MAX_SESSION_S = float(CFG["max_session_s"])     # safety cap only (10 min)
+PREBUF_CAP_S = float(CFG["prebuf_cap_s"])
+
+SR = 16000                                       # Whisper requires 16 kHz mono
+CHUNK_SAMPLES = SR * CHUNK_S
+CHUNK_BYTES = int(CHUNK_SAMPLES) * 4
+
+# Whisper "end-of-speech" hallucinations: on trailing silence it emits a stock
+# closing line (or re-emits your last phrase). These trailing phrases are
+# stripped before typing (see clean_hallucinations). Edit in your config file.
+WHISPER_HALLUCINATION_TAILS = list(CFG["hallucination_tails"])
+# -----------------------------------------------------------------------------
+
+_stop = {"flag": False}
+
+
+def _on_signal(signum, frame):
+    _stop["flag"] = True
+
+
+def _log(msg):
+    print(f"[live] {msg}", file=sys.stderr, flush=True)
+
+
+def _preload_nvidia():
+    try:
+        sp = site.getsitepackages()[0]
+    except Exception:
+        return
+    for sub, name in (
+        ("nvidia/cublas/lib", "libcublas.so.12"),
+        ("nvidia/cuda_runtime/lib", "libcudart.so.12"),
+        ("nvidia/cuda_nvrtc/lib", "libnvrtc.so.12"),
+    ):
+        p = os.path.join(sp, sub, name)
+        if os.path.exists(p):
+            try:
+                ctypes.CDLL(p, mode=ctypes.RTLD_GLOBAL)
+            except OSError:
+                pass
+
+
+def build_model():
+    """Pick a model + device from config.
+
+    device (config key `device` / DICTATE_DEVICE):
+      auto  (default) — GPU if it can hold a model, else CPU.
+                        (Ollama may be reserving most of the VRAM for its KV
+                        cache, so a big model can fail and a smaller one fit.)
+      cuda             — force the GPU; if nothing loads, fail clearly rather
+                        than silently fall back to slow CPU.
+      cpu              — force CPU (int8); never touch the GPU.
+
+    `model_name` is the primary choice. On the GPU we try it first, then fall
+    back down the standard ladder if it doesn't fit in the current VRAM
+    headroom. cpu_threads (config `cpu_threads` / DICTATE_CPU_THREADS) caps
+    CTranslate2's CPU-side bookkeeping on every transcription round, which
+    narrows the per-round CPU spike; the GPU does the actual ASR, so capping
+    barely costs speed. On a CPU model the threads *are* the compute, so we
+    leave that at the library default."""
+    from faster_whisper import WhisperModel
+    device = CFG["device"]
+    name = CFG["model_name"]
+    cpu_threads = int(CFG["cpu_threads"])
+
+    if device == "cpu":
+        m = WhisperModel(name, device="cpu", compute_type="int8")
+        _log(f"model: {name} on cpu (int8) [device=cpu]")
+        return m
+
+    # device in (auto, cuda): try the GPU, biggest model that fits first.
+    ladder = [name] + [n for n in ("medium.en", "small.en", "base.en") if n != name]
+    for cand in ladder:
+        try:
+            m = WhisperModel(cand, device="cuda", compute_type="float16",
+                             cpu_threads=cpu_threads)
+            _log(f"model: {cand} on cuda (cpu_threads={cpu_threads})")
+            return m
+        except Exception as e:
+            _log(f"cuda {cand} unavailable ({e!r})")
+
+    # No GPU model loaded.
+    if device == "cuda":
+        raise RuntimeError(
+            "device=cuda was requested but no CUDA model could load. Check the "
+            "NVIDIA driver, and that faster-whisper is built with CUDA support "
+            "(on a fresh install: `pip install -U faster-whisper`).")
+    m = WhisperModel(name, device="cpu", compute_type="int8")
+    _log(f"model: {name} on cpu (int8)")
+    return m
+
+
+def get_vad():
+    from faster_whisper.vad import get_vad_model
+    return get_vad_model()
+
+
+class AudioReader:
+    """Reads 16 kHz mono float32 audio in CHUNK_BYTES units, from the mic
+    (ffmpeg) or from a wav file (DICTATE_WAV). A drainer thread keeps
+    collecting while the model loads, so no early speech is lost."""
+
+    def __init__(self):
+        import numpy as np
+        self._np = np
+        self._buf = bytearray()
+        self._lock = threading.Lock()
+        self._closed = False
+        self._src = os.environ.get("DICTATE_WAV", "")
+        input_dev = os.environ.get("DICTATE_INPUT", "default")
+        if self._src:
+            self._proc = subprocess.Popen(
+                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", self._src,
+                 "-ar", str(SR), "-ac", "1", "-f", "f32le", "-"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            self._fh = self._proc.stdout
+        else:
+            self._proc = subprocess.Popen(
+                ["ffmpeg", "-hide_banner", "-loglevel", "error",
+                 "-f", "pulse", "-i", input_dev,
+                 "-ar", str(SR), "-ac", "1", "-f", "f32le", "-"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            # IMPORTANT: _drain() reads the raw fd (os.read), bypassing the
+            # BufferedReader — that blocks read(n) until n full bytes arrive,
+            # delivering audio in 1 s quanta and starving the session.
+            self._fh = self._proc.stdout
+        self._thread = threading.Thread(target=self._drain, daemon=True)
+        self._thread.start()
+
+    def _drain(self):
+        cap = int(PREBUF_CAP_S * SR * 4)
+        self._drain_exit = "running"
+        fd = self._fh.fileno()
+        while not self._closed:
+            try:
+                # os.read() on a pipe returns as soon as >=1 byte is
+                # available. BufferedReader.read(n) would block until n full
+                # bytes arrive, delivering audio in 1 s quanta.
+                data = os.read(fd, 65536)
+            except (OSError, ValueError) as e:
+                self._drain_exit = f"read error: {e!r}"
+                break
+            if not data:
+                self._drain_exit = "EOF"
+                break
+            with self._lock:
+                self._buf.extend(data)
+                if len(self._buf) > cap:
+                    del self._buf[: len(self._buf) - cap]
+        if self._proc is not None:
+            rc = self._proc.poll()
+            if rc is not None:
+                self._drain_exit += f" ffmpeg_exit={rc}"
+        self._eof = True
+
+    def read_chunk(self, timeout_s=1.0):
+        """Return CHUNK_BYTES of audio (as numpy float32) or None at end."""
+        deadline = time.time() + timeout_s
+        while True:
+            with self._lock:
+                if len(self._buf) >= CHUNK_BYTES:
+                    data = bytes(self._buf[:CHUNK_BYTES])
+                    del self._buf[:CHUNK_BYTES]
+                else:
+                    data = None
+            if data is not None:
+                return self._np.frombuffer(data, dtype=self._np.float32)
+            # none in buffer yet
+            with self._lock:
+                empty = len(self._buf) == 0
+            if empty and self._thread is not None and not self._thread.is_alive():
+                return None  # source ended
+            if time.time() > deadline:
+                return None  # no audio arriving (mic dead?)
+            time.sleep(0.01)
+
+    def close(self):
+        self._closed = True
+        if self._proc is not None:
+            try:
+                self._proc.terminate()
+                self._proc.wait(timeout=2)
+            except Exception:
+                self._proc.kill()
+
+
+def make_type():
+    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+    os.environ.setdefault("YDOTOOL_SOCKET", f"{runtime}/.ydotool_socket")
+    # DICTATE_DRY_RUN=1: run the whole pipeline (VAD, transcribe, commit,
+    # hallucination filter) but log what *would* be typed instead of injecting
+    # keystrokes — handy for testing without a display/mic or touching windows.
+    dry = os.environ.get("DICTATE_DRY_RUN") == "1"
+
+    def _run(args):
+        if dry:
+            _log(f"dry-run type: {args[-1]!r}")
+            return True
+        try:
+            subprocess.run(args, timeout=30, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, check=True)
+            return True
+        except Exception as e:
+            _log(f"ydotool failed: {e!r}")
+            return False
+
+    def type_text(text):
+        # Collapse whitespace runs to single spaces — but PRESERVE a leading
+        # space: commit() prepends one to separate this chunk from whatever
+        # was already typed. (" ".join(text.split()) would strip it and glue
+        # the chunks together — the 2026-11-22 "missing spaces" bug.)
+        text = re.sub(r"\s+", " ", text).rstrip()
+        core = text.lstrip()
+        if not core or re.fullmatch(r"\(.*\)", core):
+            return False
+        if _run(["ydotool", "type", "--key-delay", str(TYPE_MS),
+                 "--key-hold", str(TYPE_MS), text]):
+            return True
+        try:
+            subprocess.run(["wl-copy"], input=text.encode(), timeout=10, check=True)
+            _log("copied to clipboard instead")
+            return True
+        except Exception as e2:
+            _log(f"clipboard fallback failed: {e2!r}")
+            return False
+
+    def type_space():
+        _run(["ydotool", "type", "--key-delay", str(TYPE_MS),
+              "--key-hold", str(TYPE_MS), " "])
+
+    return type_text, type_space
+
+
+def unmute_out():
+    """Session always leaves the output unmuted (bash also unmuting on manual
+    stop — idempotent)."""
+    try:
+        subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "0"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=5)
+    except Exception:
+        pass
+
+
+def notify_done():
+    try:
+        subprocess.run(["notify-send", "-a", "type-as-you-speak",
+                        "-i", "audio-microphone", "Dictation",
+                        "Finished — output un-muted."],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=5)
+    except Exception:
+        pass
+
+
+def main():
+    signal.signal(signal.SIGTERM, _on_signal)
+    signal.signal(signal.SIGINT, _on_signal)
+
+    t0 = time.time()
+    reader = AudioReader()
+    _log(f"audio source: {os.environ.get('DICTATE_WAV', 'mic')}")
+    exit_code = 3
+    try:
+        exit_code = run_session(reader, t0)
+    finally:
+        reader.close()
+        unmute_out()
+    return exit_code
+
+
+def run_session(reader, t0):
+
+    _preload_nvidia()
+    model = build_model()
+    vad = get_vad()
+
+    def warmup():
+        try:
+            import numpy as np
+            model.transcribe(np.zeros(SR * 2, dtype=np.float32), language=LANG)
+        except Exception:
+            pass
+
+    warmup()
+    type_text, type_space = make_type()
+    _log(f"ready in {time.time() - t0:.2f}s — speak now")
+
+    import numpy as np
+
+    # ---- streaming state ----------------------------------------------------
+    # pending: audio heard but not yet committed; re-transcribed each round.
+    # committed: everything typed so far; seeds the next transcription as
+    # context so Whisper continues your sentence instead of restarting it.
+    pending = []
+    pending_dur = 0.0
+    committed = ""
+    last_speech = None
+    last_round_at = 0.0
+    session_start = time.time()
+    typed_any = False
+    _cpu_fallback = [None]
+
+    def transcribe(audio, prompt):
+        """GPU model first; if it OOMs mid-session, fall back to a CPU model
+        built on demand. Word timestamps let us commit at word granularity
+        (only words older than the commit lag are finalised)."""
+        kwargs = dict(language=LANG, vad_filter=False, word_timestamps=True)
+        if prompt:
+            kwargs["initial_prompt"] = prompt
+        try:
+            return model.transcribe(audio, **kwargs)
+        except Exception:
+            if _cpu_fallback[0] is None:
+                from faster_whisper import WhisperModel
+                _cpu_fallback[0] = WhisperModel("base.en", device="cpu",
+                                                 compute_type="int8")
+                _log("mid-session fallback to cpu base.en")
+            return _cpu_fallback[0].transcribe(audio, **kwargs)
+
+    def speech_prob(chunk):
+        arr = chunk
+        rem = len(arr) % 512
+        if rem:
+            arr = np.concatenate([arr, np.zeros(512 - rem, dtype=np.float32)])
+        probs = vad(arr)
+        return float(np.mean(probs))
+
+    def norm(s):
+        return " ".join(s.split())
+
+    def _wordkey(x):
+        return re.sub(r"[^a-z0-9']", "", x.lower())
+
+    def strip_echo(prompt_text, text):
+        """Drop leading words of `text` that merely repeat the prompt tail.
+        Whisper primed with context either re-emits the prompt or skips over
+        it — either way the repeated words are already typed, so strip them
+        (largest overlap wins; a full re-echo strips to empty)."""
+        words = text.split()
+        pw = [_wordkey(x) for x in prompt_text.split()]
+        fw = [_wordkey(x) for x in words]
+        if not pw or not fw:
+            return text
+        for k in range(min(len(pw), len(fw)), 0, -1):
+            if fw[:k] == pw[-k:]:
+                return " ".join(words[k:])
+        return text
+
+    def clean_hallucinations(text):
+        """Strip Whisper end-of-speech hallucinations before typing:
+        (1) trailing stock phrases (WHISPER_HALLUCINATION_TAILS),
+        (2) a trailing exact "X X" repeat (last K words duplicate the K before).
+        Called at the single commit point, so it catches both the main
+        transcribe pass and the tail-recovery re-transcribe."""
+        words = norm(text).split()
+        if not words:
+            return ""
+        keys = [_wordkey(w) for w in words]
+
+        # (1) strip one or more trailing stock hallucination phrases.
+        #     Longest-first, so "i'll see you in the next video" wins over its
+        #     suffix "see you in the next video" (no dangling "I'll" left).
+        tails = [[_wordkey(w) for w in p.split()] for p in WHISPER_HALLUCINATION_TAILS]
+        tails.sort(key=len, reverse=True)
+        for _ in range(3):
+            hit = next((t for t in tails
+                        if t and len(t) <= len(keys) and keys[-len(t):] == t), None)
+            if hit is None:
+                break
+            words = words[:-len(hit)]
+            keys = keys[:-len(hit)]
+            if not keys:
+                return ""
+
+        # (2) dedup a trailing exact repeat: "X X" -> "X" (K words, K >= 2)
+        n = len(words)
+        for k in range(n // 2, 1, -1):
+            if keys[-k:] == keys[-2 * k:-k]:
+                words = words[:-k]
+                break
+        return " ".join(words)
+
+    def silence_bounds(audio, min_speech_s=0.5):
+        """Sample range of the speech region (with small margins), or None if
+        there is none (whisper hallucinates on pure silence)."""
+        rem = len(audio) % 512
+        arr = audio if not rem else np.concatenate(
+            [audio, np.zeros(512 - rem, dtype=np.float32)])
+        speech = np.where(np.asarray(vad(arr)) >= 0.5)[0]
+        if len(speech) == 0:
+            return None
+        start = max(0, int(speech[0]) * 512 - 256)
+        end = min(len(audio), int(speech[-1]) * 512 + 768)
+        if end - start < SR * min_speech_s:
+            return None
+        return start, end
+
+    def commit(text):
+        """Type brand-new words after everything committed so far."""
+        nonlocal committed, typed_any
+        text = norm(text)
+        if not text:
+            return False
+        lead = " " if committed else ""
+        if type_text(lead + text):
+            committed = norm(committed + lead + text)
+            typed_any = True
+            _log(f"typed (+{len(text)} chars): {text[:60]!r}")
+            return True
+        return False
+
+    def do_round(commit_lag, now):
+        """Transcribe the pending audio; commit only the part older than
+        `commit_lag`. The tail stays pending and is re-transcribed next round
+        with more context, so words finalise with the sentence, not with our
+        cut — that is what keeps punctuation and word choice accurate."""
+        nonlocal pending, pending_dur, last_round_at
+        if not pending:
+            return
+        audio = np.concatenate(pending)
+        b = silence_bounds(audio)
+        if b is None:
+            pending, pending_dur = [], 0.0
+            return
+        start, end = b
+        segment = audio[start:end]
+        dur = (end - start) / SR
+        if dur < MIN_PENDING_S:
+            return
+        prompt = None
+        if committed:
+            tail = committed.split()[-PROMPT_TAIL_WORDS:]
+            if tail:
+                # Always prime with the committed tail (even 1-2 words):
+                # it both guides the decode and anchors the echo-stripping,
+                # so boundary words can't be typed twice.
+                prompt = " ".join(tail)
+        _log(f"round: lag={commit_lag:.1f}s region={start/SR:.2f}-{end/SR:.2f}s "
+             f"dur={dur:.2f}s prompt={bool(prompt)}")
+        try:
+            segs, _ = transcribe(segment, prompt)
+            segs = list(segs)
+        except Exception as e:
+            _log(f"transcribe error: {e!r}")
+            last_round_at = now
+            return
+        last_round_at = now
+        for s in segs:
+            _log(f"  seg [{s.start:5.2f} -> {s.end:5.2f}] {s.text.strip()[:60]!r}")
+        words = [w for s in segs for w in (s.words or [])]
+        if not words:
+            _log("no word timestamps — skipping round")
+            return
+        # Word-level stability: a word is finalised once it ended more than
+        # `commit_lag` ago — exactly the Mac behaviour (words land a beat
+        # after you say them, and the live tail re-transcribes next round
+        # with more context). This also works for one long unbroken phrase,
+        # where segment-end filtering could never finalise anything.
+        limit = dur - commit_lag
+        stable_words = [w for w in words if w.end <= limit]
+        if not stable_words:
+            if commit_lag == 0.0:
+                stable_words = words      # final commit: take everything
+            else:
+                return                    # nothing finalised yet — re-try next round
+        parts = []
+        for w in stable_words:
+            p = w.word.strip()
+            if not p:
+                continue
+            if p.startswith("-") and parts:
+                parts[-1] += p          # "open" + "-source" -> "open-source"
+            else:
+                parts.append(p)
+        stable_text = norm(" ".join(parts))
+        covered = stable_words[-1].end
+        if prompt:
+            stable_text = norm(strip_echo(prompt, stable_text))
+
+        # --- tail recovery (final commits only) ------------------------------
+        # GPU decodes can silently stop before the audio does (observed with
+        # medium.en under VRAM pressure — words vanish, or the whole segment
+        # comes back empty). If the VAD still shows speech past where the
+        # model stopped, re-transcribe that tail primed with what we already
+        # have: whisper continues exactly where the prompt leaves off.
+        if commit_lag == 0.0 and dur - covered > 0.7:
+            tail = segment[max(0, int(covered * SR)):]
+            base = norm(committed + " " + stable_text)
+            tail_prompt = " ".join(base.split()[-PROMPT_TAIL_WORDS:])
+            _log(f"tail recovery: {dur - covered:.2f}s untranscribed")
+            try:
+                segs2 = list(transcribe(tail, tail_prompt)[0])
+            except Exception as e:
+                segs2 = []
+                _log(f"tail transcribe error: {e!r}")
+            t2 = norm(strip_echo(tail_prompt,
+                                " ".join(s.text.strip() for s in segs2)))
+            if t2:
+                stable_text = norm((stable_text + " " + t2).strip())
+                covered = dur
+                _log(f"tail recovered: {t2[:60]!r}")
+
+        # Strip Whisper end-of-speech hallucinations before typing (a stock
+        # closing line and/or a trailing "X X" repeat). If the region turned
+        # out to be hallucination-only (whisper filling silence), drop the
+        # covered audio so we don't re-transcribe the same silence and
+        # re-hallucinate on every round.
+        stable_text = clean_hallucinations(stable_text)
+        if not stable_text:
+            drop = start + int(min(dur, covered) * SR) + 80
+            keep = audio[drop:] if drop < len(audio) else np.zeros(0, dtype=np.float32)
+            if keep.size >= 1600:
+                pending, pending_dur = [keep], keep.size / SR
+            else:
+                pending, pending_dur = [], 0.0
+            _log("hallucination-only region dropped (nothing typed)")
+            return
+        if committed:
+            # Continuation fixes: whisper treats every transcription as the
+            # start of a new sentence, so it capitalises the first word and
+            # sometimes prepends a stray period. Both are wrong mid-sentence.
+            if stable_text[:1] in ".!?":
+                stable_text = norm(stable_text.lstrip(".!?"))
+                if not stable_text:
+                    return
+            last_char = committed.rstrip()[-1]
+            if last_char not in ".!?'\"" and stable_text[:1].isupper():
+                stable_text = stable_text[0].lower() + stable_text[1:]
+        if not commit(stable_text):
+            return
+        # Drop the covered audio; keep the rest (a little overlap so the
+        # boundary word can't be lost) for the next round.
+        drop = start + int(min(dur, covered) * SR) + 80
+        keep = audio[drop:] if drop < len(audio) else np.zeros(0, dtype=np.float32)
+        if keep.size >= 1600:
+            pending, pending_dur = [keep], keep.size / SR
+        else:
+            pending, pending_dur = [], 0.0
+
+    while not _stop["flag"]:
+        elapsed = time.time() - session_start
+        if elapsed > MAX_SESSION_S:
+            _log("max session time reached")
+            break
+        chunk = reader.read_chunk(timeout_s=1.0)
+        if chunk is None:
+            _log(f"audio source ended: drain={getattr(reader, '_drain_exit', '?')}, "
+                 f"buf={len(reader._buf)}b, thread_alive={reader._thread.is_alive()}")
+            break
+        now = time.time()
+        # Test mode: DICTATE_WAV + DICTATE_REALTIME=1 paces file playback
+        # like a live mic, so the round/commit logic behaves realistically.
+        if reader._src and os.environ.get("DICTATE_REALTIME"):
+            time.sleep(CHUNK_S)
+
+        if speech_prob(chunk) >= VAD_THRESHOLD:
+            last_speech = now
+
+        if last_speech is None:
+            # No word yet — discard the pre-roll so we don't buffer minutes of
+            # silence; the session simply keeps listening (no auto-end).
+            pending, pending_dur = [], 0.0
+            continue
+
+        pending.append(chunk)
+        pending_dur += CHUNK_S
+
+        # No auto-stop on silence: stay open (output muted) until the
+        # dictation key is pressed again (SIGTERM) or MAX_SESSION_S is hit.
+        silent_for = now - last_speech
+        # One transcription round per TRANSCRIBE_EVERY_S wall time (GPU is
+        # busy; this also avoids hammering when a round couldn't commit).
+        if (now - last_round_at) >= TRANSCRIBE_EVERY_S and pending_dur >= 0.2:
+            if silent_for >= SILENCE_COMMIT_S:
+                # You paused: commit the whole tail — end-of-sentence
+                # punctuation lands here, with full context.
+                do_round(0.0, now)
+            elif pending_dur > MAX_PENDING_S:
+                # Safety: something isn't finalising; make progress.
+                do_round(0.3, now)
+            elif silent_for < 1.0 and pending_dur >= MIN_PENDING_S:
+                do_round(COMMIT_LAG_S, now)
+
+    # final commit of anything pending
+    do_round(0.0, time.time())
+    if not _stop["flag"]:
+        notify_done()
+    reader.close()
+    _log(f"done in {time.time() - session_start:.1f}s typed_any={typed_any}")
+    return 0 if typed_any else 3  # 3 = session ended, nothing typed
+
+
+if __name__ == "__main__":
+    sys.exit(main())
