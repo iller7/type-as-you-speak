@@ -4,6 +4,19 @@ All notable changes to **type-as-you-speak** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-11-22
+
+### Added
+- **`tays models`** — lists the Whisper models with their download sizes and a
+  one-line note each, and marks your current choice.
+- **`tays start --model NAME`** (and `tays toggle --model NAME`) — pick a model
+  for a single run without editing config (sets `DICTATE_MODEL`).
+
+### Changed
+- **Default model is now `small.en`** (~484 MB) — a lighter, faster first-run
+  that still sounds good. Bump to `medium.en` or `large-v3-turbo` for more
+  accuracy. (Set your own in `~/.config/type-as-you-speak/config.toml`.)
+
 ## [0.3.0] - 2026-11-22
 
 ### Added

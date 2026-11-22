@@ -161,6 +161,10 @@ def _log_tail(n: int = 6) -> list[str]:
 # ---- commands -----------------------------------------------------------------
 def cmd_start(_args) -> int:
     _prepare_env()
+    if getattr(_args, "model", None):
+        # Per-run model override. Must be set BEFORE the engine is imported —
+        # the engine reads its config (and DICTATE_MODEL) at import time.
+        os.environ["DICTATE_MODEL"] = _args.model
     _write_pid(os.getpid())
     _log_line(f"START (foreground) pid={os.getpid()}")
     _mute(True)
@@ -206,6 +210,9 @@ def cmd_toggle(_args) -> int:
         return cmd_stop(_args)
 
     # Start a detached session so this keypress command returns immediately.
+    env = dict(os.environ)
+    if getattr(_args, "model", None):
+        env["DICTATE_MODEL"] = _args.model   # the engine picks this up via DICTATE_MODEL
     try:
         out = open(_logfile(), "ab")
     except OSError as e:
@@ -216,6 +223,7 @@ def cmd_toggle(_args) -> int:
             [sys.executable, "-m", "type_as_you_speak", "start"],
             stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
             start_new_session=True,
+            env=env,
         )
     except Exception as e:
         print(f"type-as-you-speak: failed to launch session: {e!r}",
@@ -471,6 +479,32 @@ def cmd_keybind(args) -> int:
     return 0
 
 
+# ---- models listing ------------------------------------------------------------
+_MODELS = [
+    ("tiny.en",        "75 MB",  "fastest, weakest — quick drafts or very low power"),
+    ("base.en",        "145 MB", "light and fast, noticeably rougher accuracy"),
+    ("small.en",       "484 MB", "good everyday balance — the default for most people"),
+    ("medium.en",      "1.5 GB", "very good accuracy; best quality-per-size for English"),
+    ("large-v3-turbo", "1.6 GB", "top-tier accuracy and still fast; needs more VRAM"),
+    ("large-v3",       "3 GB",   "highest accuracy, slowest and heaviest"),
+]
+
+
+def cmd_models(_args) -> int:
+    cur = _config.load_config()["model_name"]
+    print(f"Current model: {cur}\n")
+    print(f"  {'MODEL':16} {'SIZE':>8}   notes")
+    print("  " + "-" * 60)
+    for name, size, note in _MODELS:
+        mark = "   * (current)" if name == cur else ""
+        print(f"  {name:16} {size:>8}   {note}{mark}")
+    print("\n  Change it:")
+    print('    per run:     tays start --model <name>')
+    print('    permanently: model_name = "<name>"   in   ~/.config/type-as-you-speak/config.toml')
+    print("  (The .en models are English-only: fastest and most accurate for English.)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tays",
@@ -480,11 +514,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version",
                    version=f"type-as-you-speak {__version__}")
     sub = p.add_subparsers(dest="cmd")
-    sub.add_parser("start", help="run a live session in the foreground").set_defaults(func=cmd_start)
+    st = sub.add_parser("start", help="run a live session in the foreground")
+    st.add_argument("--model", default=None, metavar="NAME",
+                    help="model for this run (e.g. small.en, medium.en) — overrides your config")
+    st.set_defaults(func=cmd_start)
     sub.add_parser("stop", help="stop the running session").set_defaults(func=cmd_stop)
-    sub.add_parser("toggle", help="stop if running, else start (bind to a key)").set_defaults(func=cmd_toggle)
+    tg = sub.add_parser("toggle", help="stop if running, else start (bind to a key)")
+    tg.add_argument("--model", default=None, metavar="NAME",
+                    help="model for the session you start (ignored when stopping)")
+    tg.set_defaults(func=cmd_toggle)
     sub.add_parser("status", help="show session state and the model in use").set_defaults(func=cmd_status)
     sub.add_parser("setup", help="check requirements, enable ydotool, write sample config").set_defaults(func=cmd_setup)
+    sub.add_parser("models", help="list the available Whisper models and sizes").set_defaults(func=cmd_models)
     kb = sub.add_parser("keybind", help="print the steps to bind a Dictation key for your desktop")
     kb.add_argument("--de", default=None, metavar="DE",
                     help="target desktop: kde|gnome|sway|hyprland|xfce|generic (default: auto-detect)")
