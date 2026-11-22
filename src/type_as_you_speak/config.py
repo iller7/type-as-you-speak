@@ -14,7 +14,7 @@ from pathlib import Path
 # Built-in defaults (identical to the original hard-coded values).
 DEFAULTS = {
     # model / device
-    "model_name": "medium.en",      # any faster-whisper model (medium.en, small.en, base.en, large-v3, …)
+    "model_name": "small.en",       # default: good everyday balance (tiny/base/small.en, medium.en, large-v3, …)
     "language": "en",
     "device": "auto",               # auto | cuda | cpu   (auto = GPU if present, else CPU)
     "cpu_threads": 2,               # CTranslate2 CPU-side threads (caps the per-round CPU spike)

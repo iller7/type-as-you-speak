@@ -9,9 +9,11 @@
 #     DICTATE_DEVICE=cpu  DICTATE_MODEL=small.en  tays start
 
 # ---- model & where it runs ----------------------------------------------------
-# Any faster-whisper model: medium.en, small.en, base.en, large-v3, large-v3-turbo, …
-# (the .en variants are English-only and fastest/most accurate for English)
-model_name = "medium.en"
+# Any faster-whisper model (run `tays models` to see sizes):
+#   tiny.en, base.en, small.en, medium.en, large-v3-turbo, large-v3, …
+# .en variants are English-only: fastest and most accurate for English speech.
+# small.en is the default (good balance); use medium.en or larger for more accuracy.
+model_name = "small.en"
 
 # Language code for Whisper.
 language = "en"

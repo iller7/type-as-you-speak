@@ -113,6 +113,7 @@ tays toggle    # one-key: stop if running, else start — bind THIS to your Dict
 tays status    # show state + the model/device in use + recent log
 tays setup     # check requirements, enable the daemon, write a sample config
 tays keybind   # print copy-paste steps to bind a Dictation key for your desktop
+tays models    # list the Whisper models, their sizes, and your current choice
 ```
 
 **Typical day:** bind your Logitech **Dictation** key (or any spare key) to
@@ -145,7 +146,7 @@ cp config/default.toml ~/.config/type-as-you-speak/config.toml
 
 | key | default | what it does |
 |---|---|---|
-| `model_name` | `medium.en` | any faster-whisper model (`small.en`, `base.en`, `large-v3`, …) |
+| `model_name` | `small.en` | any faster-whisper model (`tiny.en`…`medium.en`…`large-v3`); see `tays models` |
 | `device` | `auto` | `auto` = GPU if it fits else CPU · `cuda` = force GPU · `cpu` = force CPU |
 | `language` | `en` | Whisper language code |
 | `cpu_threads` | `2` | cap on CTranslate2's CPU-side threads (narrows the per-round CPU burst) |
