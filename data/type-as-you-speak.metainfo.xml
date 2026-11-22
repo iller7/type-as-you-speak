@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.iller7.TypeAsYouSpeak</id>
+  <name>Type As You Speak</name>
+  <summary>Speak, and your words are typed into the focused window — 100% locally</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <description>
+    <p>
+      Type As You Speak is <em>dictation, not transcription</em>: it is an
+      input method, like a keyboard. Press your Dictation key, talk, and the
+      words appear in whatever application has focus — as you speak. There is
+      no recording to upload, no queue, and no waiting.
+    </p>
+    <p>
+      Everything runs on your machine. Speech is transcribed locally with
+      faster-whisper (the fast CTranslate2 build of Whisper), so your voice and
+      your text never leave your computer. After the first model download it
+      works completely offline, and there is no account, no telemetry, and no
+      server.
+    </p>
+    <p>
+      While the microphone is live your audio output is muted, so you don't
+      hear yourself; it's restored the moment the session ends. Works on
+      Wayland and X11.
+    </p>
+    <p>
+      The store build runs on the CPU — no GPU or NVIDIA driver needed. Power
+      users who want GPU acceleration can instead install from the source
+      repository with <code>install.sh</code>.
+    </p>
+  </description>
+  <launchable type="desktop-id">type-as-you-speak.desktop</launchable>
+  <icon type="stock">type-as-you-speak</icon>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Utility</category>
+  </categories>
+  <keywords>
+    <keyword>dictation</keyword>
+    <keyword>voice</keyword>
+    <keyword>speech-to-text</keyword>
+    <keyword>whisper</keyword>
+    <keyword>offline</keyword>
+    <keyword>privacy</keyword>
+    <keyword>typing</keyword>
+  </keywords>
+  <url type="homepage">https://github.com/iller7/type-as-you-speak</url>
+  <url type="bugtracker">https://github.com/iller7/type-as-you-speak/issues</url>
+  <developer id="github.com.iller7">
+    <name type="person">Faizal Sahebdin</name>
+    <email address="iller7@gmail.com" />
+    <url type="homepage">https://github.com/iller7</url>
+  </developer>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.5.0" date="2026-11-22" type="stable">
+      <description>
+        <p>
+          App identity (icon, .desktop, AppStream) and the first distribution-channel
+          packaging: Flatpak/Flathub, a .deb builder, an AUR PKGBUILD, and a Fedora/Copr
+          spec — all CPU builds. <code>tays</code> also now starts the ydotool
+          daemon automatically if it isn't running.
+        </p>
+      </description>
+    </release>
+    <release version="0.4.0" date="2026-11-22" type="stable">
+      <description>
+        <p>
+          Added the <code>tays models</code> listing and per-run
+          <code>tays start --model NAME</code>. The default model is now
+          small.en — a lighter, faster first run; bump to medium.en or larger for more
+          accuracy.
+        </p>
+      </description>
+    </release>
+    <release version="0.3.0" date="2026-11-22" type="stable">
+      <description>
+        <p>
+          Added <code>tays keybind</code>: copy-paste steps to bind a Dictation key
+          for your desktop (auto-detects KDE, GNOME, Sway, Hyprland, XFCE).
+        </p>
+      </description>
+    </release>
+    <release version="0.2.0" date="2026-11-22" type="stable">
+      <description>
+        <p>X11 support: keystroke injection works on both Wayland and X11, and the
+        clipboard fallback is chosen per session (wl-copy or xclip).</p>
+      </description>
+    </release>
+    <release version="0.1.1" date="2026-11-22" type="stable">
+      <description>
+        <p>
+          Fixed the hallucination filter to strip Whisper's stock "closing" phrases
+          wherever they appear in a commit, not only at the tail.
+        </p>
+      </description>
+    </release>
+    <release version="0.1.0" date="2026-11-22" type="stable">
+      <description>
+        <p>
+          First release: Mac-like, type-as-you-speak dictation for Linux — the words you
+          say are typed into the focused window as you talk. GPU auto-detect with CPU
+          fallback, config-driven, and an idempotent no-sudo installer.
+        </p>
+      </description>
+    </release>
+  </releases>
+</component>

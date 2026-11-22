@@ -57,6 +57,43 @@ def _prepare_env() -> None:
                 break
     os.environ.setdefault(
         "YDOTOOL_SOCKET", f"{os.environ['XDG_RUNTIME_DIR']}/.ydotool_socket")
+    _ensure_ydotool_daemon()
+
+
+def _ensure_ydotool_daemon() -> None:
+    """Make sure the ydotool daemon (ydotoold) is running — keystroke injection
+    goes through it. Works without systemd: if it isn't running we start it
+    detached. A no-op when the daemon is already up (e.g. the install.sh user
+    service), and skipped entirely in dry-run mode (no typing happens then)."""
+    if os.environ.get("DICTATE_DRY_RUN") == "1":
+        return
+    if not shutil.which("ydotool"):
+        return  # typing unavailable anyway; nothing to start
+    try:
+        p = subprocess.run(["pgrep", "-x", "ydotoold"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=5)
+        if p.returncode == 0:
+            return
+    except Exception:
+        pass
+    exe = shutil.which("ydotoold")
+    if not exe:
+        _log_line("ydotool present but ydotoold daemon not found — typing unavailable")
+        return
+    try:
+        with open(_logfile(), "ab") as log:
+            subprocess.Popen([exe], stdout=log, stderr=subprocess.STDOUT,
+                             stdin=subprocess.DEVNULL, start_new_session=True)
+        sock = Path(os.environ["XDG_RUNTIME_DIR"]) / ".ydotool_socket"
+        for _ in range(50):
+            if sock.exists():
+                _log_line("started ydotoold daemon (detached)")
+                return
+            time.sleep(0.1)
+        _log_line("started ydotoold; socket not up yet — will retry on next run")
+    except Exception as e:
+        _log_line(f"could not start ydotoold daemon: {e!r}")
 
 
 def _log_line(msg: str) -> None:

@@ -1,0 +1,68 @@
+# Maintainer: Faizal Sahebdin <iller7@gmail.com>
+#
+# type-as-you-speak — Mac-like, real-time dictation for Linux (Wayland & X11).
+# 100% local: faster-whisper runs on your machine, your audio never leaves it,
+# and it works offline after the first model download (~484 MB, small.en).
+
+pkgname=type-as-you-speak
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Mac-like, type-as-you-speak dictation for Linux (Wayland & X11) — 100% local"
+arch=(x86_64)
+url="https://github.com/iller7/type-as-you-speak"
+license=(AGPL-3.0-only)
+
+depends=(
+  python
+  # Python deps (all in [extra]):
+  python-faster-whisper
+  python-onnxruntime
+  # Runtime tools:
+  ydotool        # keystroke injection (daemon: ydotoold)
+  wl-clipboard   # clipboard fallback on Wayland
+  xclip          # clipboard fallback on X11
+  ffmpeg         # mic capture (pulse input)
+)
+makedepends=(python-pip)
+
+source=("$pkgname-$pkgver.tar.gz::https://github.com/iller7/type-as-you-speak/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=(TODO_FILL_IN_AFTER_TAG)
+
+build() {
+  cd "$pkgname-$pkgver"
+  # Arch already packages the Python dependencies, so bundle only the app code.
+  python -m pip install \
+    --no-cache-dir --no-build-isolation --no-deps --no-warn-script-location \
+    --user -t "$srcdir/pydeps" .
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  # Python package (pure Python; distro packages provide the deps).
+  local py sp
+  py="$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  sp="$pkgdir/usr/lib/python$py/site-packages"
+  install -dm755 "$sp"
+  cp -a "$srcdir/pydeps/." "$sp/"
+
+  # Launcher (wrapper so the shebang is env-clean).
+  install -Dm755 /dev/null "$pkgdir/usr/bin/tays"
+  cat > "$pkgdir/usr/bin/tays" <<'EOF'
+#!/usr/bin/env python3
+import sys
+from type_as_you_speak.cli import main
+sys.exit(main())
+EOF
+
+  # Desktop entry, AppStream metadata, icon, docs.
+  install -Dm644 data/type-as-you-speak.desktop \
+    "$pkgdir/usr/share/applications/type-as-you-speak.desktop"
+  install -Dm644 data/type-as-you-speak.metainfo.xml \
+    "$pkgdir/usr/share/metainfo/type-as-you-speak.metainfo.xml"
+  for size in 512 256 128 64 32; do
+    install -Dm644 "data/icons/type-as-you-speak-$size.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png"
+  done
+  install -Dm644 README.md LICENSE "$pkgdir/usr/share/doc/$pkgname/"
+}

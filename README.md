@@ -23,6 +23,11 @@ works on any Wayland or X11 compositor.
 > output while the mic is live, and a one-key start/stop). That glue is
 > fiddly per-desktop and nobody had productised it well, so this does.
 
+> **100% local, by design.** This is *dictation, not transcription*: an input
+> method, like a keyboard. All audio is processed on your machine with
+> Whisper — nothing is uploaded, there's no account and no telemetry — and
+> after the first model download it works completely offline.
+
 ---
 
 ## Demo
@@ -83,6 +88,23 @@ python3 -m venv .venv && .venv/bin/pip install "git+https://github.com/iller7/ty
 This gets you the `tays` command. You still need the OS prerequisites above
 (especially **ydotool + its daemon**) — `pip` can't set those up, so prefer
 `install.sh` if you want it all handled.
+
+### Option C — from a package channel (CPU build)
+
+All store/distro packages are **CPU builds** (no GPU in a sandbox) — they're
+the right choice if you don't need GPU acceleration, or as a first taste. The
+power-user route (Options A/B) is the one that adds the CUDA build.
+
+- **Debian / Ubuntu:** `packaging/deb/build-deb.sh` → `apt install
+  ./dist/type-as-you-speak_*.deb`
+- **Arch / AUR:** `yay -S type-as-you-speak` (uses the repo's
+  `packaging/aur/PKGBUILD`)
+- **Fedora / Copr:** `packaging/fedora/type-as-you-speak.spec`
+- **Flatpak / Flathub** (shows in KDE Discover / GNOME Software):
+  `packaging/flatpak/…json`
+
+See [`packaging/README.md`](packaging/README.md) for the full per-channel
+notes.
 
 ### Verify
 

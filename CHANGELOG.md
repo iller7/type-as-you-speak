@@ -4,6 +4,19 @@ All notable changes to **type-as-you-speak** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-11-22
+
+### Added
+- **App identity:** an icon (transparent background, no embedded metadata), a
+  `.desktop` file, and AppStream `.metainfo.xml` in `data/` — so the app shows
+  up cleanly in app stores (KDE Discover / KDE Marketplace via Flathub, GNOME
+  Software, …).
+- **Packaging scaffolds for the distribution channels**, all CPU builds, under
+  `packaging/`: a Flatpak/Flathub manifest, an AUR `PKGBUILD`, a `.deb`
+  builder (`build-deb.sh`), and a Fedora/Copr `spec`.
+- `tays` now **auto-starts the `ydotoold` daemon** if it isn't running (needed
+  inside the Flatpak sandbox, and handy on any host without a user service).
+
 ## [0.4.0] - 2026-11-22
 
 ### Added
