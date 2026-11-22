@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.4
+Name=Type As You Speak
+GenericName=Dictation
+Comment=Speak, and your words are typed into the focused window in real time
+Exec=tays toggle
+Icon=type-as-you-speak
+Terminal=false
+Categories=AudioVideo;Utility;
+Keywords=dictation;voice;speech-to-text;whisper;offline;privacy;typing;
+StartupNotify=false
