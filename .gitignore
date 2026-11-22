@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.python-version
+
+# Environments
+.venv/
+venv/
+env/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local state / secrets / logs
+*.log
+.env
+.nojekyll
+
+# The user's own local config (lives in ~/.config, never committed)
+config/config.toml

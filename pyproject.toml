@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "type-as-you-speak"
+version = "0.1.0"
+description = "Mac-like, type-as-you-speak dictation for Linux (Wayland): speak and the words are typed into the focused window as you talk."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Faizal Sahebdin", email = "iller7@gmail.com" }]
+keywords = ["dictation", "speech-to-text", "whisper", "wayland", "linux", "asr"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Multimedia :: Sound/Audio :: Speech",
+  "Topic :: Text Processing :: Linguistic",
+]
+dependencies = [
+  "faster-whisper>=1.0.0",
+  "numpy>=1.24",
+  "onnxruntime>=1.14",
+]
+
+[project.optional-dependencies]
+# Only needed if you want to generate synthetic speech for testing without a mic.
+dev = ["gTTS>=2.4"]
+
+[project.urls]
+Homepage = "https://github.com/iller7/type-as-you-speak"
+Issues = "https://github.com/iller7/type-as-you-speak/issues"
+
+[project.scripts]
+tays = "type_as_you_speak.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
