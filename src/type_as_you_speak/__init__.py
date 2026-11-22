@@ -10,4 +10,4 @@ Modules:
   cli     — the `tays` command (start / stop / toggle / status / setup)
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

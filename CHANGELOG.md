@@ -4,6 +4,15 @@ All notable changes to **type-as-you-speak** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-11-22
+
+### Added
+- **`tays keybind`** helper: prints the exact, copy-paste steps to bind a
+  Dictation key for your desktop — auto-detects KDE / GNOME / Sway / Hyprland /
+  XFCE, or `--de <name>` to target one. It recommends the env-safe wrapper
+  already on your PATH and notes the binding is a *run-command* (so it never
+  types into your window). `tays setup` now points here too.
+
 ## [0.2.0] - 2026-11-22
 
 ### Added

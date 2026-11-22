@@ -362,9 +362,8 @@ def cmd_setup(_args) -> int:
     else:
         print(f"\n  [ok  ] config present -> {ucfg}")
 
-    print("\nKeybind: bind your Dictation key to run the `tays toggle` command.")
-    print("  • OpenLogi: set the KeyDictation action to run `tays toggle`.")
-    print("  • KDE custom shortcut: a 'Run command/URL' action running `tays toggle`.")
+    print("\nKeybind: bind your Dictation key to a *toggle* (press to start, press again to stop).")
+    print("  Run `tays keybind` for copy-paste steps for your desktop (KDE/GNOME/Sway/…).")
     print(f"\nThen just try:  tays start   (or:  tays status)")
     return 0
 
@@ -382,6 +381,96 @@ def _sample_config_text() -> str:
     return "\n".join(lines) + "\n"
 
 
+# ---- keybind helper -----------------------------------------------------------
+_DE_ALIASES = {
+    "kde":      ("kde", "plasma"),
+    "gnome":    ("gnome",),
+    "sway":     ("sway",),
+    "hyprland": ("hyprland",),
+    "xfce":     ("xfce",),
+}
+
+
+def _detect_de() -> str:
+    """Best-guess desktop environment from the standard env vars."""
+    raw = (os.environ.get("XDG_CURRENT_DESKTOP")
+           or os.environ.get("DESKTOP_SESSION") or "").lower()
+    raw = raw.replace("-", "").replace("_", "").replace(".", "")
+    for de, names in _DE_ALIASES.items():
+        if any(n in raw for n in names):
+            return de
+    return "generic"
+
+
+def _toggle_command() -> str:
+    """The single command to bind to a key. Prefer the env-safe wrappers your
+    setup already provides, else fall back to the CLI."""
+    home = os.path.expanduser("~")
+    for cand in (f"{home}/.local/bin/dictate.sh", f"{home}/.local/bin/tays-toggle.sh"):
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return "tays toggle"
+
+
+_KEYBIND_STEPS = {
+    "kde": (
+        "1. System Settings → **Keyboard** → **Global Shortcuts** → **Custom Shortcuts**.\n"
+        "2. **Add New…** → **Global/Window Shortcut** (name it “Dictation”).\n"
+        "3. **Shortcut** tab → *Record Shortcut* → press your key or combo (e.g. `Ctrl+M`,\n"
+        "   or a single key). It's a *run-command* binding, so it won't type into your window.\n"
+        "4. **Action** tab → **Run command/URL** → paste:\n\n"
+        "         {cmd}\n\n"
+        "5. OK / Apply. Done — one press starts, the next stops."
+    ),
+    "gnome": (
+        "GNOME has no built-in “run command” shortcut — install the **Custom Shortcut**\n"
+        "extension (GNOME Extensions site), then add:\n"
+        "  • Command:  {cmd}\n"
+        "  • Shortcut: your key/combo (e.g. `Ctrl+M`)\n"
+        "It's a run-command binding, so nothing gets typed into your window."
+    ),
+    "sway": (
+        "In your Sway config (usually `~/.config/sway/config`), add:\n\n"
+        "         bindsym ctrl+m exec {cmd}\n\n"
+        "then reload with `swmsg -reload`."
+    ),
+    "hyprland": (
+        "In your Hyprland config (`~/.config/hypr/hyprland.conf`), add:\n\n"
+        "         bind = CTRL + M, exec, {cmd}\n\n"
+        "then `hyprctl reload`."
+    ),
+    "xfce": (
+        "In **Settings → Keyboard → Application Shortcuts**, click **Add**, press your\n"
+        "key/combo, and set the command to:\n\n"
+        "         {cmd}\n\n"
+        "OK. One press starts, the next stops."
+    ),
+    "generic": (
+        "Any environment that can run a command on a key press — bind this command to\n"
+        "your Dictation key:\n\n"
+        "         {cmd}\n\n"
+        "Examples: **OpenLogi** (Logi devices) → set the key's action to *Run Shell\n"
+        "Command* with the above; your compositor's global hotkey; or a global-hotkey\n"
+        "tool. It's a run-command binding, so it won't type into your window. Press\n"
+        "once to start, again to stop."
+    ),
+}
+
+
+def cmd_keybind(args) -> int:
+    de = (args.de or _detect_de()).lower()
+    if de not in _KEYBIND_STEPS:
+        de = "generic"
+    cmd = _toggle_command()
+    print("Bind this command to your Dictation key (a *toggle*: press to start,")
+    print("press again to stop):\n")
+    print(f"    {cmd}\n")
+    print(f"### {de.upper()} ###\n")
+    print(_KEYBIND_STEPS[de].format(cmd=cmd))
+    print("\n(Use `tays keybind --de <kde|gnome|sway|hyprland|xfce|generic>` to target a specific one.)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tays",
@@ -396,6 +485,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("toggle", help="stop if running, else start (bind to a key)").set_defaults(func=cmd_toggle)
     sub.add_parser("status", help="show session state and the model in use").set_defaults(func=cmd_status)
     sub.add_parser("setup", help="check requirements, enable ydotool, write sample config").set_defaults(func=cmd_setup)
+    kb = sub.add_parser("keybind", help="print the steps to bind a Dictation key for your desktop")
+    kb.add_argument("--de", default=None, metavar="DE",
+                    help="target desktop: kde|gnome|sway|hyprland|xfce|generic (default: auto-detect)")
+    kb.set_defaults(func=cmd_keybind)
     return p
 
 
