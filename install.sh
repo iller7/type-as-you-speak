@@ -63,14 +63,20 @@ else
   say "no CUDA GPU detected — transcription will run on CPU (slower, works anywhere)"
 fi
 
-# Wayland (the whole point; keystrokes are injected into the focused window)
+# A GUI session (Wayland or X11). ydotool types into the focused window on
+# both; only the clipboard-fallback tool (checked below) differs.
 RT="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 if [ -n "${WAYLAND_DISPLAY:-}" ] || ls "$RT"/wayland-* >/dev/null 2>&1 \
    || [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
   ok "Wayland session detected"
+  CLIP_EXE="wl-copy"; CLIP_PKG="wl-clipboard"
+elif [ -n "${DISPLAY:-}" ] || [ "${XDG_SESSION_TYPE:-}" = "x11" ]; then
+  ok "X11 session detected"
+  CLIP_EXE="xclip"; CLIP_PKG="xclip"
 else
-  warn "no Wayland display found — this tool needs Wayland (not X11)."
-  warn "If you're in a Wayland session and still see this, run from within it."
+  warn "no GUI session found (Wayland or X11) — this types into the focused window,"
+  warn "so run it from inside your desktop session."
+  CLIP_EXE="wl-copy"; CLIP_PKG="wl-clipboard"
 fi
 
 # Required commands
@@ -88,8 +94,8 @@ if have ydotool; then ok "ydotool"; else
   fail "ydotool missing — keystroke injection needs it."
   echo "         install:  apt install ydotool   |   dnf install ydotool"
 fi
-if have wl-copy; then ok "wl-copy (clipboard fallback)"
-else warn "wl-copy missing — clipboard fallback won't work (apt install wl-clipboard)"; fi
+if have "$CLIP_EXE"; then ok "$CLIP_EXE (clipboard fallback)"
+else warn "$CLIP_EXE missing — clipboard fallback won't work (apt install $CLIP_PKG)"; fi
 if have notify-send; then ok "notify-send (notifications)"
 else warn "notify-send missing — you just won't get notifications"; fi
 

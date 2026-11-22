@@ -4,6 +4,15 @@ All notable changes to **type-as-you-speak** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-22
+
+### Added
+- **X11 support.** Keystroke injection via `ydotool` already works on both
+  Wayland and X11; the clipboard-fallback tool is now chosen per session
+  (`wl-copy` on Wayland, `xclip` on X11). `install.sh`, `tays setup`, and the
+  docs no longer treat X11 as unsupported — a GUI session (Wayland *or* X11)
+  is all that's required. On X11, install `xclip` for the clipboard fallback.
+
 ## [0.1.1] - 2026-11-22
 
 ### Fixed

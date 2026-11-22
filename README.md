@@ -1,6 +1,6 @@
 # type-as-you-speak
 
-Mac-like, **type-as-you-speak dictation for Linux (Wayland).**
+Mac-like, **type-as-you-speak dictation for Linux (Wayland & X11).**
 
 Press a key and the words you say are typed into the focused window *as you
 talk* — no "record, then paste a blob" step. Each word is finalised with full
@@ -16,7 +16,7 @@ sentence context, so:
 It uses [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 (Whisper, CTranslate2 backend) for recognition, runs the model on your **GPU if
 it's available** (otherwise CPU), and injects keystrokes with **ydotool** so it
-works on any Wayland compositor.
+works on any Wayland or X11 compositor.
 
 > **Why this exists:** the hard part of Linux dictation isn't transcription —
 > it's the system glue (injecting keystrokes into the focused window, muting
@@ -41,13 +41,13 @@ _A screen-capture GIF is coming soon._
 
 | What | Why | Install |
 |---|---|---|
-| **Wayland** (KDE, GNOME, Niri, Hyprland, …) | keystrokes are injected into the focused window | your compositor — **X11 is not supported** |
+| **Wayland or X11** (KDE, GNOME, Niri, Hyprland, …) | keystrokes are injected into the focused window | your compositor / window manager — either works |
 | **NVIDIA GPU** *(optional, recommended)* | fast, low-CPU transcription | your driver — otherwise it runs on CPU (slower) |
 | **Python 3.11+** | the engine | `python3` |
 | **ffmpeg** | mic capture | `apt install ffmpeg` / `dnf install ffmpeg` |
 | **PulseAudio/PipeWire** (`pactl`) | mute output while the mic is live | usually present with any DE |
 | **ydotool** + its daemon | type into the focused window | `apt install ydotool` / `dnf install ydotool` |
-| **wl-clipboard** (`wl-copy`) | clipboard fallback if typing fails | `apt install wl-clipboard` |
+| **Clipboard** (`wl-copy` on Wayland, `xclip` on X11) | clipboard fallback if typing fails | `apt install wl-clipboard` / `apt install xclip` |
 | **libnotify** (`notify-send`) | desktop notifications | usually present |
 
 The Whisper model (~1.5 GB for `medium.en`) is downloaded automatically on

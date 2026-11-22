@@ -23,6 +23,7 @@ import ctypes
 import os
 import re
 import signal
+import shutil
 import site
 import subprocess
 import sys
@@ -293,6 +294,21 @@ class AudioReader:
                 self._proc.kill()
 
 
+def _clipboard_args():
+    """Command to place text on the system clipboard, chosen per desktop.
+
+    Wayland -> `wl-copy` (wl-clipboard); X11 -> `xclip -selection clipboard`.
+    If neither display env var is set (e.g. launched by a trimmed agent), pick
+    whichever clipboard tool is actually installed."""
+    if os.environ.get("WAYLAND_DISPLAY"):
+        return ["wl-copy"]
+    if os.environ.get("DISPLAY"):
+        return ["xclip", "-selection", "clipboard"]
+    if shutil.which("xclip"):
+        return ["xclip", "-selection", "clipboard"]
+    return ["wl-copy"]
+
+
 def make_type():
     runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
     os.environ.setdefault("YDOTOOL_SOCKET", f"{runtime}/.ydotool_socket")
@@ -326,7 +342,7 @@ def make_type():
                  "--key-hold", str(TYPE_MS), text]):
             return True
         try:
-            subprocess.run(["wl-copy"], input=text.encode(), timeout=10, check=True)
+            subprocess.run(_clipboard_args(), input=text.encode(), timeout=10, check=True)
             _log("copied to clipboard instead")
             return True
         except Exception as e2:

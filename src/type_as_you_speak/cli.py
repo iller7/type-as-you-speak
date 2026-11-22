@@ -8,7 +8,7 @@ Commands
           This is the command to bind to your Dictation key.
   status  Show whether a session is running, on which model/device, and the
           tail of the session log.
-  setup   Check system requirements (Wayland, ydotool, deps), enable the
+  setup   Check system requirements (GUI session, ydotool, deps), enable the
           ydotool daemon, and drop a sample config file for you to edit.
 
 The session is always managed via a PID file in the XDG state dir
@@ -252,31 +252,49 @@ def cmd_status(_args) -> int:
     return 0
 
 
-def _in_wayland() -> bool:
-    if os.environ.get("WAYLAND_DISPLAY"):
-        return True
-    if os.environ.get("XDG_SESSION_TYPE") == "wayland":
-        return True
+def _session() -> str:
+    """'wayland', 'x11', or 'none' — which display server we're in (if any).
+
+    ydotool types into the focused window on both, so this only drives the
+    clipboard-fallback tool (wl-copy vs xclip) and the wording of the check."""
+    if os.environ.get("WAYLAND_DISPLAY") or os.environ.get("XDG_SESSION_TYPE") == "wayland":
+        return "wayland"
     rt = os.environ.get("XDG_RUNTIME_DIR", "")
-    return any(p.is_socket() for p in Path(rt).glob("wayland-*")) if rt else False
+    if rt and any(p.is_socket() for p in Path(rt).glob("wayland-*")):
+        return "wayland"
+    if os.environ.get("DISPLAY") or os.environ.get("XDG_SESSION_TYPE") == "x11":
+        return "x11"
+    return "none"
 
 
 def cmd_setup(_args) -> int:
     print(f"type-as-you-speak {__version__} — setup check\n")
 
+    sess = _session()
     checks: list[tuple[str, bool, str]] = []
-    checks.append(("Wayland session", _in_wayland(),
-                   "run this inside a Wayland session (KDE/GNOME/Niri/…)"))
+    checks.append(("GUI session (Wayland or X11)", sess != "none",
+                   "run this inside a desktop session (Wayland or X11)"))
     for name, exe, hint in (
         ("ffmpeg", "ffmpeg", "apt install ffmpeg / dnf install ffmpeg"),
         ("PulseAudio (pactl)", "pactl", "pipewire-pulse or pulseaudio"),
         ("ydotool (key typing)", "ydotool", "apt install ydotool / dnf install ydotool"),
-        ("wl-copy (clipboard fallback)", "wl-copy", "apt install wl-clipboard"),
-        ("notify-send (desktop notifications)", "notify-send",
-         "part of most desktops (libnotify)"),
     ):
         path = shutil.which(exe)
         checks.append((name, bool(path), hint if not path else ""))
+    # The clipboard-fallback tool depends on the desktop session.
+    if sess == "wayland":
+        clip_name, clip_exe, clip_hint = ("wl-copy (clipboard fallback)", "wl-copy",
+                                          "apt install wl-clipboard")
+    elif sess == "x11":
+        clip_name, clip_exe, clip_hint = ("xclip (clipboard fallback)", "xclip",
+                                          "apt install xclip")
+    else:
+        clip_name, clip_exe, clip_hint = ("clipboard (wl-copy or xclip)", "wl-copy",
+                                          "wl-clipboard (Wayland) or xclip (X11)")
+    clip_ok = bool(shutil.which(clip_exe)) or (sess == "none" and bool(shutil.which("xclip")))
+    checks.append((clip_name, clip_ok, clip_hint if not clip_ok else ""))
+    checks.append(("notify-send (desktop notifications)", bool(shutil.which("notify-send")),
+                   "part of most desktops (libnotify)"))
 
     for label, ok, hint in checks:
         mark = "ok  " if ok else "MISS"
@@ -368,7 +386,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tays",
         description="type-as-you-speak — Mac-like type-as-you-speak dictation "
-                    "for Linux (Wayland).",
+                    "for Linux (Wayland & X11).",
     )
     p.add_argument("--version", action="version",
                    version=f"type-as-you-speak {__version__}")
