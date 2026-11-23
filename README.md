@@ -30,18 +30,6 @@ works on any Wayland or X11 compositor.
 
 ---
 
-## Demo
-
-_A screen-capture GIF is coming soon._
-
-<!-- When a demo is ready, drop `docs/demo.gif` (or a screenshot) in the repo
-     and replace the line above with, e.g.:
-
-     ![type-as-you-speak in action](docs/demo.gif)
--->
-
----
-
 ## Requirements
 
 | What | Why | Install |
@@ -89,19 +77,33 @@ This gets you the `tays` command. You still need the OS prerequisites above
 (especially **ydotool + its daemon**) — `pip` can't set those up, so prefer
 `install.sh` if you want it all handled.
 
-### Option C — from a package channel (CPU build)
+### Option C — ready-made `.deb` (CPU build)
 
-All store/distro packages are **CPU builds** (no GPU in a sandbox) — they're
-the right choice if you don't need GPU acceleration, or as a first taste. The
-power-user route (Options A/B) is the one that adds the CUDA build.
+The easiest first taste on a Debian/Ubuntu machine — the [latest
+release](https://github.com/iller7/type-as-you-speak/releases) ships a
+ready-made `.deb`:
 
-- **Debian / Ubuntu:** `packaging/deb/build-deb.sh` → `apt install
-  ./dist/type-as-you-speak_*.deb`
-- **Arch / AUR:** `yay -S type-as-you-speak` (uses the repo's
-  `packaging/aur/PKGBUILD`)
-- **Fedora / Copr:** `packaging/fedora/type-as-you-speak.spec`
-- **Flatpak / Flathub** (shows in KDE Discover / GNOME Software):
-  `packaging/flatpak/…json`
+```bash
+curl -L -o tays.deb \
+  https://github.com/iller7/type-as-you-speak/releases/latest/download/type-as-you-speak_0.5.1_amd64.deb
+sudo apt install ./tays.deb
+```
+
+_(the filename carries the version — future releases are on the Releases page)_
+
+All package-channel builds are **CPU builds** (no GPU in a sandbox) — the
+right choice if you don't need GPU acceleration. The power-user route
+(Options A/B) is the one that adds the CUDA build.
+
+Other channels — **packaging is ready in-repo, publication is pending**:
+
+- **Arch / AUR:** `packaging/aur/PKGBUILD` (AUR package not yet created)
+- **Fedora / Copr:** `packaging/fedora/type-as-you-speak.spec` (not yet on Copr)
+- **Flatpak / Flathub:** `packaging/flatpak/…json` (not yet submitted — once
+  live, shows in KDE Discover / GNOME Software)
+
+Prefer building the latest master yourself? `./packaging/deb/build-deb.sh` →
+`sudo apt install ./dist/type-as-you-speak_*.deb`
 
 See [`packaging/README.md`](packaging/README.md) for the full per-channel
 notes.
@@ -123,6 +125,10 @@ cd type-as-you-speak && git pull
 
 New code applies immediately. Re-run `./install.sh` only if you also want to
 refresh the Python dependencies.
+
+Package installs (`.deb`, and later AUR/Flatpak/Copr) update with their
+channel instead — e.g. `sudo apt install --only-upgrade ./tays.deb` when a
+newer release ships.
 
 ---
 

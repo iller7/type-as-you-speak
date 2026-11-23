@@ -2,7 +2,7 @@
 #
 # Push a v* tag (after bumping the version in the repo) and this workflow:
 #   check   — verifies the tag matches pyproject.toml and __init__.py
-#   build   — sdist + wheel (pypa/build) and a .deb (build-deb.sh)
+#   build   — sdist + wheel (python -m build) and a .deb (build-deb.sh)
 #   release — publishes a GitHub release with the CHANGELOG slice as notes
 #
 # Deliberately NOT here (manual, needs your accounts):
@@ -22,8 +22,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Verify tag matches project version
@@ -41,10 +41,10 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Build sdist and wheel
@@ -59,7 +59,7 @@ jobs:
           bash packaging/deb/build-deb.sh
       - name: Show artifacts
         run: ls -lh dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-artifacts
           path: dist/
@@ -69,8 +69,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: release-artifacts
           path: dist/
@@ -84,7 +84,7 @@ jobs:
           [ -s release-notes.md ] || { echo "::error::no CHANGELOG entry for $VER"; exit 1; }
           echo "---"; cat release-notes.md
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: release-notes.md
           files: dist/*
