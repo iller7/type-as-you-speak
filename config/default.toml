@@ -86,6 +86,12 @@ condition_on_previous_text = false
 # string, separate entries with commas. Leave empty to disable.
 hotwords = ""
 
+# Optional: a text file of hotwords (one per line, '#' comments and blank
+# lines ignored) — shareable with other users (e.g. a team or topic list).
+# Combined with the inline list above; a missing file is skipped with a
+# warning. A starter list ships at config/hotwords.example.txt.
+hotwords_file = ""
+
 # ---- Whisper "end-of-speech" hallucinations -----------------------------------
 # On trailing silence Whisper emits a stock closing line (or re-emits your last
 # phrase). Any *trailing* phrase in this list is stripped before it's typed.
