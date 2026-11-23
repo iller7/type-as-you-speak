@@ -1,0 +1,25 @@
+# Dependabot: keeps dependencies and GitHub Actions current.
+#
+# - Security fixes  → auto-merged (needs the repo setting
+#   "Dependabot security updates" enabled; done for this repo).
+# - Version bumps   → opened as PRs; ci.yml proves the build + audit still
+#   pass, then you merge at your convenience.
+#
+# Bumps land on master and take effect at the NEXT release (tag) — published
+# artifacts were built from the tagged commit, so nothing silently changes
+# under existing users.
+version: 2
+updates:
+  # Python dependencies (pyproject.toml)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    security-updates: true
+
+  # GitHub Actions (.github/workflows)
+  - package-ecosystem: "github-actions"
+    directory: "/.github/workflows"
+    schedule:
+      interval: "weekly"
+    security-updates: true

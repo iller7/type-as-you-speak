@@ -1,0 +1,49 @@
+# Continuous checks: every PR + every push to master.
+#
+# This is what makes Dependabot PRs (and any change) trustworthy:
+#   build-and-audit — the wheel must build, and the shipped dependency tree
+#                     must be free of HIGH/CRITICAL advisories (pip-audit)
+#   workflow-lint   — zizmor static analysis of all .github/workflows
+#
+# All actions are pinned to commit SHAs (version in the comment); Dependabot
+# keeps the SHAs current for the "github-actions" ecosystem.
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+      - name: Security audit (pip-audit on the shipped dependency tree)
+        run: bash scripts/security-audit.sh
+
+  workflow-lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          # pin the zizmor binary too — no floating "latest"
+          version: v1.33.1
+          annotations: true
+          advanced-security: "false"
