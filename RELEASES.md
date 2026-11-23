@@ -16,6 +16,8 @@ three artifacts attached).
    - `data/type-as-you-speak.metainfo.xml` → new `<release>` entry
    - `packaging/flatpak/*.json` → `"tag": "vX.Y.Z"`
    - `packaging/fedora/type-as-you-speak.spec` → `Version: X.Y.Z`
+   - `README.md` → the Option C `.deb` one-liner carries the asset name
+     (`type-as-you-speak_X.Y.Z_amd64.deb`) — update it to the new version
 2. **Commit and tag:**
    ```sh
    git commit -am "chore: release X.Y.Z"   # or your feature commit(s) first
