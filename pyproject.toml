@@ -26,6 +26,9 @@ dependencies = [
 [project.optional-dependencies]
 # Only needed if you want to generate synthetic speech for testing without a mic.
 dev = ["gTTS>=2.4"]
+# Needed for the settings window (`tays gui`). Kept optional so the core — and
+# the CPU-only store builds — stay lean; `tays gui` degrades with a hint if absent.
+gui = ["PySide6>=6.6", "tomlkit>=0.12"]
 
 [project.urls]
 Homepage = "https://github.com/iller7/type-as-you-speak"
