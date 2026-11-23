@@ -186,6 +186,8 @@ cp config/default.toml ~/.config/type-as-you-speak/config.toml
 | `condition_on_previous_text` | `false` | `false` = segments don't re-emit earlier text (suppresses duplicated phrases) |
 | `hotwords` | *(empty)* | words/phrases to bias the decoder toward (proper nouns, names, jargon); comma-separated |
 | `hotwords_file` | *(empty)* | path to a hotwords text file (one per line, `#` comments) — a shareable list; combined with the inline `hotwords` |
+| `duck_volume_pct` | `5` | background audio duck level while dictating (% of sink volume; `0` = the old hard-mute) |
+| `duck_ramp_ms` | `400` | fade time for the duck/restore ramps (ms) — the graceful dip and return |
 
 Per-run overrides without editing the file:
 

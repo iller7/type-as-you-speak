@@ -44,6 +44,11 @@ DEFAULTS = {
     # list above. "" = no file; a missing/unreadable file is skipped with a
     # warning (the inline list still applies).
     "hotwords_file": "",
+    # While the mic is live, background audio is ducked (lowered) instead of
+    # hard-muted, then ramped back up on stop — music keeps playing quietly.
+    # duck_volume_pct = 0 restores the old hard-mute behaviour.
+    "duck_volume_pct": 5,
+    "duck_ramp_ms": 400,
     # Whisper "end-of-speech" hallucinations: when it hits trailing silence it emits a
     # stock closing line (or re-emits your last phrase). These trailing phrases are
     # stripped before typing (see clean_hallucinations in engine.py). Add any you spot.
@@ -81,6 +86,8 @@ _ENV_MAP = {
     "DICTATE_CONDITION_ON_PREVIOUS_TEXT": ("condition_on_previous_text", _env_bool),
     "DICTATE_HOTWORDS": ("hotwords", str),
     "DICTATE_HOTWORDS_FILE": ("hotwords_file", str),
+    "DICTATE_DUCK_VOLUME_PCT": ("duck_volume_pct", int),
+    "DICTATE_DUCK_RAMP_MS": ("duck_ramp_ms", int),
 }
 
 
