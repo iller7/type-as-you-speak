@@ -111,3 +111,11 @@ hallucination_tails = [
     "see you next time",
     "voice to text",
 ]
+
+# ---- output audio while dictating ----------------------------------------------
+# While the mic is live, background audio is *ducked* (lowered) instead of
+# hard-muted, then ramped back up when you stop — music keeps playing quietly
+# and the fade is graceful both ways. Set duck_volume_pct = 0 for the old
+# hard-mute behaviour.
+duck_volume_pct = 5     # duck the default sink to this % (0 = hard mute)
+duck_ramp_ms = 400      # fade time per ramp, ms (smoothness of the dip/restore)
