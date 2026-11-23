@@ -335,6 +335,22 @@ def _log_tail(n: int = 6) -> list[str]:
 
 
 # ---- commands -----------------------------------------------------------------
+def _status_dict() -> dict:
+    """Machine-readable session state — the contract GUIs and desktop
+    applets consume (via `tays status --json`)."""
+    running, pid = _is_running()
+    cfg = _config.load_config()
+    return {
+        "app": "type-as-you-speak",
+        "version": __version__,
+        "running": running,
+        "pid": pid if running else None,
+        "state": "listening" if running else "stopped",
+        "model": cfg["model_name"],
+        "device": cfg["device"],
+    }
+
+
 def cmd_start(_args) -> int:
     _prepare_env()
     if getattr(_args, "model", None):
@@ -354,10 +370,14 @@ def cmd_start(_args) -> int:
 
 
 def cmd_stop(_args) -> int:
+    as_json = getattr(_args, "json", False)
     running, pid = _is_running()
     if not running:
-        print("type-as-you-speak: not running")
         _duck_off()
+        if as_json:
+            print(json.dumps(_status_dict()))
+        else:
+            print("type-as-you-speak: not running")
         return 0
     _log_line(f"STOP (manual) session_pid={pid}")
     try:
@@ -375,6 +395,9 @@ def cmd_stop(_args) -> int:
             pass
     _remove_pid()
     _duck_off()
+    if as_json:
+        print(json.dumps(_status_dict()))
+        return 0
     _notify("Dictation", "Stopped — output volume restored.")
     print("type-as-you-speak: stopped")
     return 0
@@ -414,8 +437,13 @@ def cmd_toggle(_args) -> int:
         _duck_off()  # it may have ducked before dying; be safe
         print(f"type-as-you-speak: session failed to start "
               f"(exit {child.returncode}); see {_logfile()}", file=sys.stderr)
+        if getattr(_args, "json", False):
+            print(json.dumps(_status_dict()))
         return 1
     _log_line(f"START (detached) child_pid={child.pid}")
+    if getattr(_args, "json", False):
+        print(json.dumps(_status_dict()))
+        return 0
     _notify("Listening…",
             "Speak now — it types as you talk; press the key again to stop.")
     print("Listening… speak now — it types as you talk. Press the key again to stop.")
@@ -423,6 +451,12 @@ def cmd_toggle(_args) -> int:
 
 
 def cmd_status(_args) -> int:
+    as_json = getattr(_args, "json", False)
+    if as_json:
+        # Machine contract: stdout is JSON only; exit 0 regardless of state
+        # (consumers key off the "running" field, not the exit code).
+        print(json.dumps(_status_dict()))
+        return 0
     running, pid = _is_running()
     if not running:
         print("type-as-you-speak: not running")
@@ -696,6 +730,23 @@ def cmd_models(_args) -> int:
     return 0
 
 
+def cmd_gui(_args) -> int:
+    """Open the settings window. The GUI is an optional extra so the core
+    stays lean — if its dependencies are missing, say so and point at the fix."""
+    try:
+        from . import gui
+    except ImportError as e:
+        missing = e.name or "PySide6"
+        print("The settings GUI needs the 'gui' extra "
+              f"(missing: {missing}).", file=sys.stderr)
+        print("Install it with:  pip install 'type-as-you-speak[gui]'",
+              file=sys.stderr)
+        print("Or edit the config directly: "
+              f"{_config.user_config_path()}", file=sys.stderr)
+        return 1
+    return gui.main()
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tays",
@@ -709,14 +760,24 @@ def build_parser() -> argparse.ArgumentParser:
     st.add_argument("--model", default=None, metavar="NAME",
                     help="model for this run (e.g. small.en, medium.en) — overrides your config")
     st.set_defaults(func=cmd_start)
-    sub.add_parser("stop", help="stop the running session").set_defaults(func=cmd_stop)
+    sp = sub.add_parser("stop", help="stop the running session")
+    sp.add_argument("--json", action="store_true",
+                    help="print machine-readable JSON status on stdout")
+    sp.set_defaults(func=cmd_stop)
     tg = sub.add_parser("toggle", help="stop if running, else start (bind to a key)")
     tg.add_argument("--model", default=None, metavar="NAME",
                     help="model for the session you start (ignored when stopping)")
+    tg.add_argument("--json", action="store_true",
+                    help="print machine-readable JSON status on stdout")
     tg.set_defaults(func=cmd_toggle)
-    sub.add_parser("status", help="show session state and the model in use").set_defaults(func=cmd_status)
+    spst = sub.add_parser("status", help="show session state and the model in use")
+    spst.add_argument("--json", action="store_true",
+                      help="print machine-readable JSON status on stdout")
+    spst.set_defaults(func=cmd_status)
     sub.add_parser("setup", help="check requirements, enable ydotool, write sample config").set_defaults(func=cmd_setup)
     sub.add_parser("models", help="list the available Whisper models and sizes").set_defaults(func=cmd_models)
+    sub.add_parser("gui", help="open the settings window (optional 'gui' extra)") \
+        .set_defaults(func=cmd_gui)
     kb = sub.add_parser("keybind", help="print the steps to bind a Dictation key for your desktop")
     kb.add_argument("--de", default=None, metavar="DE",
                     help="target desktop: kde|gnome|sway|hyprland|xfce|generic (default: auto-detect)")
