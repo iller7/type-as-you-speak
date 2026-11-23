@@ -7,7 +7,7 @@
 # and drop the /opt bundle + wrapper (use a normal %pyproject_install).
 
 Name:           type-as-you-speak
-Version:        0.5.0
+Version:        0.5.1
 Release:        1%{?dist}
 Summary:        Mac-like, type-as-you-speak dictation for Linux (Wayland & X11) - 100% local
 

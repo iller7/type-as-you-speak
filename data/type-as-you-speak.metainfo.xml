@@ -54,6 +54,16 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.5.1" date="2026-11-23" type="stable">
+      <description>
+        <p>
+          New app icon: a clean, simplified vector design in a soft pastel
+          palette, crisp in every package. Also: an automated GitHub Actions
+          release pipeline (sdist, wheel, and a .deb per tagged release) and a
+          RELEASES.md checklist for cutting releases.
+        </p>
+      </description>
+    </release>
     <release version="0.5.0" date="2026-11-22" type="stable">
       <description>
         <p>

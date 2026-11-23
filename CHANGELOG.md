@@ -4,6 +4,23 @@ All notable changes to **type-as-you-speak** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-11-23
+
+### Changed
+- **New app icon:** a clean, simplified vector design (smooth edges, no bitmap
+  noise) in a soft pastel palette — periwinkle outline and stand, mint top,
+  coral body, and a soft-rose accent band. Shipped as a hand-authored SVG
+  master plus all five rendered PNG sizes (512/256/128/64/32), so the icon in
+  every package is crisp and metadata-free.
+
+### Added
+- **Automated release pipeline:** a GitHub Actions `release` workflow that, on
+  a `v*` tag, checks the tag matches the project version, builds the sdist,
+  wheel, and a `.deb`, and publishes them as a GitHub release with the
+  CHANGELOG slice as the notes.
+- **`RELEASES.md`:** the step-by-step checklist for cutting a release through
+  the new pipeline (tag → CI → artifacts → AUR hash update).
+
 ## [0.5.0] - 2026-11-22
 
 ### Added
