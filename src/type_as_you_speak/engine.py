@@ -42,6 +42,36 @@ except ImportError:      # also allow running the file directly
 
 CFG = _cfgmod.load_config()
 
+
+def _log(msg):
+    print(f"[live] {msg}", file=sys.stderr, flush=True)
+
+
+def load_hotwords(inline, path):
+    """Combine the inline `hotwords` string with an optional hotwords file
+    (one word or phrase per line; '#' comments and blank lines ignored).
+    Entries are deduped case-insensitively (first occurrence wins) and
+    returned as one comma-separated string. A missing/unreadable file warns
+    and falls back to the inline list — never crashes a session."""
+    entries = [e.strip() for e in re.split(r"[,;]", inline or "") if e.strip()]
+    if path:
+        p = os.path.expanduser(str(path))
+        try:
+            with open(p, encoding="utf-8") as f:
+                for line in f:
+                    e = line.split("#", 1)[0].strip()
+                    if e:
+                        entries.append(e)
+        except OSError as e:
+            _log(f"hotwords file {p!r} unreadable ({e}) — inline list only")
+    seen, out = set(), []
+    for e in entries:
+        k = e.casefold()
+        if k not in seen:
+            seen.add(k)
+            out.append(e)
+    return ", ".join(out)
+
 MODEL_NAME = CFG["model_name"]                  # any faster-whisper model
 LANG = CFG["language"]
 TYPE_MS = int(CFG["type_ms"])                   # ydotool ms per key
@@ -57,7 +87,8 @@ MAX_SESSION_S = float(CFG["max_session_s"])     # safety cap only (10 min)
 PREBUF_CAP_S = float(CFG["prebuf_cap_s"])
 NO_REPEAT_NGRAM_SIZE = int(CFG["no_repeat_ngram_size"])
 CONDITION_ON_PREVIOUS_TEXT = bool(CFG["condition_on_previous_text"])
-HOTWORDS = str(CFG["hotwords"]).strip()
+HOTWORDS = load_hotwords(str(CFG["hotwords"]).strip(),
+                         str(CFG.get("hotwords_file", "")).strip())
 
 SR = 16000                                       # Whisper requires 16 kHz mono
 CHUNK_SAMPLES = SR * CHUNK_S
@@ -247,10 +278,6 @@ _stop = {"flag": False}
 
 def _on_signal(signum, frame):
     _stop["flag"] = True
-
-
-def _log(msg):
-    print(f"[live] {msg}", file=sys.stderr, flush=True)
 
 
 def _preload_nvidia():

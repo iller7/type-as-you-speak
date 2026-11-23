@@ -407,6 +407,20 @@ def cmd_setup(_args) -> int:
     else:
         print(f"\n  [ok  ] config present -> {ucfg}")
 
+    # Drop a starter hotwords file next to the config if the user has none
+    hotwords_path = ucfg.parent / "hotwords.txt"
+    if not hotwords_path.is_file():
+        sample = Path(__file__).resolve().parents[2] / "config" / "hotwords.example.txt"
+        if sample.is_file():
+            try:
+                hotwords_path.write_text(sample.read_text())
+                print(f"  [ok  ] starter hotwords -> {hotwords_path}")
+                print(f"          (enable it with `hotwords_file` in your config)")
+            except OSError:
+                pass
+    elif hotwords_path.is_file():
+        print(f"  [ok  ] hotwords file present -> {hotwords_path}")
+
     print("\nKeybind: bind your Dictation key to a *toggle* (press to start, press again to stop).")
     print("  Run `tays keybind` for copy-paste steps for your desktop (KDE/GNOME/Sway/…).")
     print(f"\nThen just try:  tays start   (or:  tays status)")

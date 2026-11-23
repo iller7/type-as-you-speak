@@ -1,0 +1,20 @@
+# type-as-you-speak — hotwords
+# -----------------------------
+# One word or phrase per line. Blank lines and '#' comments are ignored.
+# Enable it in your config with:  hotwords_file = "this-file.txt"
+# (entries are combined with the inline `hotwords` list; first wins)
+#
+# Keep this SHORT. Every entry biases the decoder toward hearing that word,
+# so a long list can make Whisper "hear" entries you never said. Add only
+# words you actually say often that it keeps getting wrong — proper nouns,
+# names, jargon, your usual spellings.
+#
+# The lines below are a starter (words from early test sessions that were
+# misheard). Edit to taste.
+
+Linux
+dictation
+keystroke
+clipboard
+daemon
+glue
