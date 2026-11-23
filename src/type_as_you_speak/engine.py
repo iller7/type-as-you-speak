@@ -56,6 +56,7 @@ MAX_SESSION_S = float(CFG["max_session_s"])     # safety cap only (10 min)
 PREBUF_CAP_S = float(CFG["prebuf_cap_s"])
 NO_REPEAT_NGRAM_SIZE = int(CFG["no_repeat_ngram_size"])
 CONDITION_ON_PREVIOUS_TEXT = bool(CFG["condition_on_previous_text"])
+HOTWORDS = str(CFG["hotwords"]).strip()
 
 SR = 16000                                       # Whisper requires 16 kHz mono
 CHUNK_SAMPLES = SR * CHUNK_S
@@ -147,18 +148,24 @@ def clean_hallucinations(text):
     return " ".join(words)
 
 
-def has_repetition_loop(words):
-    """True if the same word occurs back-to-back anywhere — the signature of a
-    degenerate beam-search decode (observed when the GPU is contended:
-    "Cl- Cl- Cl-", "you you you"). Used to engage the CPU fallback."""
-    prev = None
+def has_repetition_loop(words, min_run=3):
+    """True if the same word occurs back-to-back `min_run` or more times —
+    the signature of a degenerate beam-search decode ("Cl- Cl- Cl-").
+
+    Two back-to-back is NOT enough to trip the CPU fallback: now that
+    no_repeat_ngram_size blocks most loops at the source, a double occurrence
+    is more often a Whisper segmentation stutter on a legit word (or a
+    speaker stutter) than degeneration."""
+    prev, run = None, 0
     for w in words:
         k = _wordkey(w)
         if not k:
+            prev, run = None, 0
             continue
-        if k == prev:
-            return True
+        run = run + 1 if k == prev else 1
         prev = k
+        if run >= min_run:
+            return True
     return False
 
 
@@ -504,6 +511,8 @@ def run_session(reader, t0):
         kwargs = dict(language=LANG, vad_filter=False, word_timestamps=True,
                       no_repeat_ngram_size=NO_REPEAT_NGRAM_SIZE,
                       condition_on_previous_text=CONDITION_ON_PREVIOUS_TEXT)
+        if HOTWORDS:
+            kwargs["hotwords"] = HOTWORDS
         if prompt:
             kwargs["initial_prompt"] = prompt
         if _cpu_fallback[0] is not None:
@@ -521,6 +530,20 @@ def run_session(reader, t0):
             arr = np.concatenate([arr, np.zeros(512 - rem, dtype=np.float32)])
         probs = vad(arr)
         return float(np.mean(probs))
+
+    def span_has_speech(audio, start_s, end_s, min_prob=0.5):
+        """VAD probability over one word's audio span. Whisper can stamp a
+        hallucinated closing word with plausible speed ("ships." on 0.18 s);
+        if there is no speech energy in its span, it was invented over silence."""
+        s = max(0, int(start_s * SR))
+        e = min(len(audio), int(end_s * SR))
+        span = np.ascontiguousarray(audio[s:e], dtype=np.float32)
+        if span.size < 512:          # too short to judge — keep the word
+            return True
+        rem = span.size % 512
+        if rem:
+            span = np.concatenate([span, np.zeros(512 - rem, dtype=np.float32)])
+        return float(np.mean(vad(span))) >= min_prob
 
     def strip_echo(prompt_text, text):
         """Drop leading words of `text` that merely repeat the prompt tail.
@@ -623,6 +646,18 @@ def run_session(reader, t0):
         # Drop a trailing hallucination stamped faster than speech can go
         # (e.g. "All right." on 0.14 s / "you" on 0.08 s — see trim_fast_tail).
         stable_words = trim_fast_tail(stable_words)
+        # Drop a trailing hallucination with plausible speed but no speech
+        # energy behind it (e.g. "ships." on 0.18 s over silence — VAD check).
+        # Never drops below one word; max two, so a real quiet final word
+        # followed by one stray token is the worst case touched.
+        if len(stable_words) > 1:
+            dropped = 0
+            while dropped < 2:
+                w = stable_words[-1]
+                if span_has_speech(segment, w.start, w.end):
+                    break
+                stable_words = stable_words[:-1]
+                dropped += 1
         if not stable_words:
             return                        # hallucination-only round — re-try next
         parts = []

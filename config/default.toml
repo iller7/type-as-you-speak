@@ -81,6 +81,11 @@ no_repeat_ngram_size = 2
 # segments). true = older Whisper behaviour.
 condition_on_previous_text = false
 
+# Bias the decoder toward words it otherwise mishears — proper nouns, jargon,
+# names ("Nvidia" -> "and video", "Jensen Huang" -> "Jensen Wan"). Plain
+# string, separate entries with commas. Leave empty to disable.
+hotwords = ""
+
 # ---- Whisper "end-of-speech" hallucinations -----------------------------------
 # On trailing silence Whisper emits a stock closing line (or re-emits your last
 # phrase). Any *trailing* phrase in this list is stripped before it's typed.
