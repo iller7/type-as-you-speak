@@ -135,19 +135,20 @@ newer release ships.
 ## Usage
 
 ```bash
-tays start     # run a live session in the foreground (mutes output; Ctrl-C stops)
-tays stop      # stop the running session (commits pending text, unmutes)
+tays start     # run a live session in the foreground (ducks output; Ctrl-C stops)
+tays stop      # stop the running session (commits pending text, restores volume)
 tays toggle    # one-key: stop if running, else start — bind THIS to your Dictation key
 tays status    # show state + the model/device in use + recent log
 tays setup     # check requirements, enable the daemon, write a sample config
 tays keybind   # print copy-paste steps to bind a Dictation key for your desktop
 tays models    # list the Whisper models, their sizes, and your current choice
+tays gui       # settings window: pick model & options, start/stop (optional extra)
 ```
 
 **Typical day:** bind your Logitech **Dictation** key (or any spare key) to
-`toggle`, then just press it, talk, press it again to stop. Output is muted
-while the mic is live so you don't hear yourself; it's unmuted the moment the
-session ends.
+`toggle`, then just press it, talk, press it again to stop. Background audio
+is ducked (lowered to `duck_volume_pct`) while the mic is live and ramped back
+up the moment the session ends.
 
 ### Bind the key
 
@@ -160,6 +161,23 @@ KDE/GNOME/Sway/…; `--de <name>` to pick one).
 - **Any compositor:** point its keybinding at `tays toggle` (the repo also
   ships `bin/tays-toggle.sh`, which sets a safe environment first — useful when
   the key is triggered from a background agent).
+
+### Settings window
+
+Prefer picking options over editing TOML? Install the optional GUI extra and
+open the settings window:
+
+```bash
+pip install 'type-as-you-speak[gui]'   # PySide6 + tomlkit (not in the core)
+tays gui
+```
+
+It shows a live start/stop panel (driven by `tays status --json`) and every
+config option — model & device, pacing, background-audio ducking, decode
+stability, hotwords (inline and file) and the hallucination-tail list. **Save**
+writes your `config.toml` preserving its comments; **Revert** reloads it;
+**Open config file** opens it in your editor. Changes apply to the next
+session.
 
 ---
 
