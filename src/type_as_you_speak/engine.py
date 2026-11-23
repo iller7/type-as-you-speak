@@ -161,6 +161,21 @@ def has_repetition_loop(words):
         prev = k
     return False
 
+
+def trim_fast_tail(words, min_span_s=0.10):
+    """Drop a trailing run of words stamped faster than speech can go.
+
+    Over trailing silence Whisper hallucinates a short closing word/phrase and
+    stamps it implausibly fast — observed "All right." on 0.14 s (0.07 s/word)
+    and a lone "you" on 0.08 s. Real speech can't sustain < ~0.1 s per word
+    (even fast), so a trailing run that fast is a hallucination. Position-
+    scoped to the tail: real words mid-sentence are never touched.
+    """
+    i = len(words)
+    while i > 0 and (words[i - 1].end - words[i - 1].start) < min_span_s:
+        i -= 1
+    return words[:i]
+
 _stop = {"flag": False}
 
 
@@ -605,6 +620,11 @@ def run_session(reader, t0):
                 stable_words = words      # final commit: take everything
             else:
                 return                    # nothing finalised yet — re-try next round
+        # Drop a trailing hallucination stamped faster than speech can go
+        # (e.g. "All right." on 0.14 s / "you" on 0.08 s — see trim_fast_tail).
+        stable_words = trim_fast_tail(stable_words)
+        if not stable_words:
+            return                        # hallucination-only round — re-try next
         parts = []
         for w in stable_words:
             p = w.word.strip()
