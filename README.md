@@ -174,10 +174,19 @@ tays gui
 
 It shows a live start/stop panel (driven by `tays status --json`) and every
 config option — model & device, pacing, background-audio ducking, decode
-stability, hotwords (inline and file) and the hallucination-tail list. **Save**
-writes your `config.toml` preserving its comments; **Revert** reloads it;
-**Open config file** opens it in your editor. Changes apply to the next
-session.
+stability, hotwords (inline and file) and the hallucination-tail list.
+
+- **Model picker** marks each model *downloaded* / *not downloaded*; the
+  **Download** button fetches the selected model on demand (it would be
+  fetched at session start anyway — this just makes it visible and safe).
+- **Device** is a radio choice (Auto / CUDA / CPU) — CUDA is greyed out on
+  machines without an NVIDIA GPU.
+- **Language** is a dropdown (editable for the long tail).
+- **Hover any field** for a short explanation of what it does.
+
+**Save** writes your `config.toml` preserving its comments; **Revert**
+reloads it; **Open config file** opens it in your editor. Changes apply to
+the next session.
 
 ---
 

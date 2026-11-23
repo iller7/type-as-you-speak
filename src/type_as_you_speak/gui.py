@@ -14,16 +14,20 @@ way that preserves the file's existing comments and layout. Requires the
 optional ``gui`` extra (PySide6 + tomlkit); the core stays lean.
 """
 import json
+import os
+import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog,
-    QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QMainWindow,
-    QMessageBox, QPushButton, QPlainTextEdit, QSpinBox, QVBoxLayout, QWidget,
+    QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox,
+    QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
+    QMainWindow, QMessageBox, QPushButton, QPlainTextEdit, QRadioButton,
+    QSpinBox, QVBoxLayout, QWidget,
 )
 
 import tomlkit
@@ -44,6 +48,83 @@ _SPIN_FLOAT = {
     "commit_lag_s": (0.1, 5.0, 0.1),
     "transcribe_every_s": (0.3, 3.0, 0.1),
 }
+
+# Languages offered in the picker (Whisper language codes; the combo stays
+# editable for the long tail).
+LANGUAGES = [
+    "auto", "en", "de", "fr", "es", "it", "pt", "nl", "pl", "ru", "uk",
+    "zh", "ja", "ko", "hi", "ar", "tr", "sv", "da", "no", "fi", "cs",
+    "hu", "ro", "el", "he", "vi", "th", "id", "ms", "tl", "ca", "et",
+    "lv", "lt", "sk", "sl", "hr", "sr", "bg", "fa", "pa", "ta", "te",
+    "bn", "my", "km", "ne", "sw", "af", "sq", "is", "mt", "gl", "eu",
+]
+
+# Hover explanations for every field (grounded in the README).
+TIPS = {
+    "model_name": ("Whisper model: larger = more accurate but slower. The .en "
+                   "models are English-only and the fastest for English. "
+                   "'Not downloaded' models are fetched on demand — use the "
+                   "Download button."),
+    "device": ("auto: GPU if present, else CPU.  cuda: force the NVIDIA GPU.  "
+               "cpu: always CPU — less VRAM and smaller per-round CPU spikes "
+               "(useful when the GPU is busy, e.g. Ollama)."),
+    "language": ("Force a language, or 'auto' to detect per session. Picking "
+                 "the right one improves accuracy and speed."),
+    "cpu_threads": ("CPU threads for the model (CTranslate2). Raise if "
+                    "transcription is slow; lower to cap the per-round CPU "
+                    "spike."),
+    "type_ms": ("Milliseconds per key when typing. Raise to ~10 if an app "
+                "drops characters."),
+    "commit_lag_s": ("How much recent audio to hold uncommitted so words can "
+                     "finalise with full context (the Mac-like behaviour)."),
+    "transcribe_every_s": ("How often to re-transcribe the pending audio "
+                           "while you keep talking."),
+    "duck_volume_pct": ("Background-audio level while the mic is live, as % "
+                        "of the sink volume. 0 = the old hard-mute."),
+    "duck_ramp_ms": ("Fade time (ms) of the volume dip and restore — the "
+                     "smoothness of the duck."),
+    "no_repeat_ngram_size": ("Block repeated N-grams to suppress repetition "
+                             "loops under GPU contention. 0 = off."),
+    "condition_on_previous_text": ("Let Whisper use earlier segments as "
+                                   "context. Off avoids re-emitted phrases; "
+                                   "on can add coherence."),
+    "hotwords": ("Comma-separated words to bias the decoder toward — names, "
+                 "jargon, product names."),
+    "hotwords_file": ("A text file of hotwords (one per line, '#' comments) — "
+                      "shareable; combined with the inline list."),
+    "hallucination_tails": ("Trailing phrases Whisper may hallucinate over "
+                            "trailing silence. A matching tail is stripped "
+                            "before typing."),
+}
+
+
+def _hf_hub_dir() -> Path:
+    """Where faster-whisper/Hugging Face caches model weights."""
+    if os.environ.get("HF_HUB_CACHE"):
+        return Path(os.environ["HF_HUB_CACHE"]).expanduser()
+    home = os.environ.get("HF_HOME") or os.path.expanduser("~/.cache/huggingface")
+    return Path(home) / "hub"
+
+
+def _model_available(name: str) -> bool:
+    d = _hf_hub_dir() / f"models--Systran--faster-whisper-{name}"
+    return (d / "snapshots").is_dir()
+
+
+def _gpu_present() -> bool:
+    """An NVIDIA GPU the driver can see (nvidia-smi -L)."""
+    if not shutil.which("nvidia-smi"):
+        return False
+    try:
+        p = subprocess.run(["nvidia-smi", "-L"], capture_output=True, timeout=5)
+        return p.returncode == 0 and b"GPU" in (p.stdout or b"")
+    except Exception:
+        return False
+
+
+def _model_of(text: str) -> str:
+    """'small.en  (484 MB) — downloaded' -> 'small.en'."""
+    return text.split("  (")[0].split(" — ")[0].strip()
 
 
 def _icon() -> QIcon | None:
@@ -81,6 +162,12 @@ class SettingsWindow(QMainWindow):
         # key -> widget; populated by the builders below (skips specials).
         self._fields: dict[str, QWidget] = {}
 
+        # model download state (background thread; polled by the status timer)
+        self._dl_thread: threading.Thread | None = None
+        self._dl_result: tuple[bool, str] | None = None
+        self._dl_name = ""
+        self._dl_line = ""
+
         root.addWidget(self._model_group())
         root.addWidget(self._timing_group())
         root.addWidget(self._audio_group())
@@ -117,6 +204,7 @@ class SettingsWindow(QMainWindow):
     # ---- widget builders ------------------------------------------------------
     def _line(self, key: str) -> QLineEdit:
         w = QLineEdit(str(load_config().get(key, "")))
+        w.setToolTip(TIPS.get(key, ""))
         self._fields[key] = w
         return w
 
@@ -126,6 +214,7 @@ class SettingsWindow(QMainWindow):
         w.setRange(lo, hi)
         w.setSingleStep(step)
         w.setValue(int(load_config().get(key, lo)))
+        w.setToolTip(TIPS.get(key, ""))
         self._fields[key] = w
         return w
 
@@ -136,35 +225,137 @@ class SettingsWindow(QMainWindow):
         w.setSingleStep(step)
         w.setDecimals(2)
         w.setValue(float(load_config().get(key, lo)))
+        w.setToolTip(TIPS.get(key, ""))
         self._fields[key] = w
         return w
+
+    # ---- model picker: availability + download --------------------------------
+    def _selected_model(self) -> str:
+        return _model_of(self.model_combo.currentText())
+
+    def _refresh_model_marks(self) -> None:
+        """Rebuild the model list with downloaded / not-downloaded marks."""
+        cur = self._selected_model()
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+        for name, size, _note in cli._MODELS:
+            mark = " — downloaded" if _model_available(name) else " — not downloaded"
+            self.model_combo.addItem(f"{name}  ({size}){mark}")
+        if cur:
+            texts = [self.model_combo.itemText(i) for i in range(self.model_combo.count())]
+            if not any(_model_of(t) == cur for t in texts):
+                mark = " — downloaded" if _model_available(cur) else " — not downloaded"
+                self.model_combo.addItem(f"{cur}{mark}")
+            for i in range(self.model_combo.count()):
+                if _model_of(self.model_combo.itemText(i)) == cur:
+                    self.model_combo.setCurrentIndex(i)
+                    break
+        self.model_combo.blockSignals(False)
+        self._update_download_btn()
+
+    def _update_download_btn(self) -> None:
+        name = self._selected_model()
+        if self._dl_thread is not None and self._dl_thread.is_alive():
+            self.dl_btn.setEnabled(False)
+            self.dl_btn.setText("Downloading…")
+        elif _model_available(name):
+            self.dl_btn.setEnabled(False)
+            self.dl_btn.setText("Ready ✓")
+        else:
+            self.dl_btn.setEnabled(True)
+            self.dl_btn.setText("Download")
+
+    def _download_clicked(self) -> None:
+        name = self._selected_model()
+        if not name or (self._dl_thread is not None and self._dl_thread.is_alive()):
+            return
+        self._dl_name = name
+        self._dl_result = None
+        self._dl_line = f"Downloading {name}…"
+        self.dl_btn.setEnabled(False)
+        self.dl_btn.setText("Downloading…")
+        self._dl_thread = threading.Thread(
+            target=self._download_worker, args=(name,), daemon=True)
+        self._dl_thread.start()
+
+    def _download_worker(self, name: str) -> None:
+        """Fetch the model into the Hugging Face cache (and validate it by
+        loading on CPU). Runs in a background thread; the status timer polls
+        _dl_line / _dl_result."""
+        code = ("from faster_whisper import WhisperModel; "
+                f"WhisperModel({name!r}, device='cpu', compute_type='int8')")
+        try:
+            p = subprocess.Popen([sys.executable, "-c", code],
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 text=True)
+            assert p.stdout is not None
+            for line in p.stdout:
+                if line.strip():
+                    self._dl_line = line.strip()
+            p.wait(timeout=3600)
+            tail = [l for l in (self._dl_line or "").splitlines() if l.strip()]
+            if p.returncode == 0:
+                self._dl_result = (True, "done")
+            else:
+                self._dl_result = (False, (tail[-1] if tail else "download failed"))
+        except Exception as e:
+            self._dl_result = (False, repr(e))
 
     def _model_group(self) -> QGroupBox:
         g = QGroupBox("Model & device")
         f = QFormLayout(g)
 
-        cur = load_config()["model_name"]
         self.model_combo = QComboBox()
         self.model_combo.setEditable(True)
-        for name, size, _note in cli._MODELS:
-            self.model_combo.addItem(f"{name}  ({size})")
-        if not any(cur in self.model_combo.itemText(i)
-                   for i in range(self.model_combo.count())):
-            self.model_combo.addItem(cur)
-        self.model_combo.setCurrentText(
-            next((self.model_combo.itemText(i)
-                  for i in range(self.model_combo.count())
-                  if self.model_combo.itemText(i).startswith(cur)), cur))
+        self.model_combo.setToolTip(TIPS["model_name"])
+        self.model_combo.currentTextChanged.connect(lambda _t: self._update_download_btn())
         self._fields["model_name"] = self.model_combo
 
-        self.device_combo = QComboBox()
-        self.device_combo.addItems(["auto", "cuda", "cpu"])
-        self.device_combo.setCurrentText(str(load_config().get("device", "auto")))
-        self._fields["device"] = self.device_combo
+        self.dl_btn = QPushButton("Download")
+        self.dl_btn.setToolTip(
+            "Download the selected model (stored in the Hugging Face cache; "
+            "the session would also fetch it on first use).")
+        self.dl_btn.clicked.connect(self._download_clicked)
+        self.model_label = QLabel("")
+        self.model_label.setWordWrap(True)
+        mh = QHBoxLayout()
+        mh.addWidget(self.model_combo, 1)
+        mh.addWidget(self.dl_btn)
+        f.addRow("Model:", mh)
+        f.addRow("", self.model_label)
+        self._refresh_model_marks()
 
-        f.addRow("Model:", self.model_combo)
-        f.addRow("Device:", self.device_combo)
-        f.addRow("Language:", self._line("language"))
+        # device: radio buttons; CUDA is offered only when a GPU is actually
+        # present (nvidia-smi), otherwise it is greyed out with a reason.
+        self._dev_btns: dict[str, QRadioButton] = {}
+        self._dev_group = QButtonGroup(self)
+        dev_cfg = str(load_config().get("device", "auto"))
+        dev_row = QHBoxLayout()
+        for key, label in (("auto", "Auto"), ("cuda", "CUDA (GPU)"), ("cpu", "CPU")):
+            rb = QRadioButton(label)
+            rb.setToolTip(TIPS["device"])
+            if key == "cuda" and not _gpu_present():
+                rb.setEnabled(False)
+                rb.setToolTip("No NVIDIA GPU detected — CUDA is unavailable "
+                              "on this machine.")
+            self._dev_group.addButton(rb)
+            self._dev_btns[key] = rb
+            dev_row.addWidget(rb)
+        target = dev_cfg if dev_cfg in self._dev_btns and self._dev_btns[dev_cfg].isEnabled() else "auto"
+        self._dev_btns[target].setChecked(True)
+        f.addRow("Device:", dev_row)
+
+        self.lang_combo = QComboBox()
+        self.lang_combo.setEditable(True)
+        self.lang_combo.setToolTip(TIPS["language"])
+        self.lang_combo.addItems(LANGUAGES)
+        lang = str(load_config().get("language", "auto"))
+        if lang not in LANGUAGES:
+            self.lang_combo.insertItem(0, lang)
+        self.lang_combo.setCurrentText(lang)
+        self._fields["language"] = self.lang_combo
+        f.addRow("Language:", self.lang_combo)
+
         f.addRow("CPU threads:", self._spin("cpu_threads"))
         return g
 
@@ -189,6 +380,7 @@ class SettingsWindow(QMainWindow):
         f.addRow("No-repeat N-gram size (0 = off):", self._spin("no_repeat_ngram_size"))
         w = QCheckBox("Condition on previous text")
         w.setChecked(bool(load_config().get("condition_on_previous_text", False)))
+        w.setToolTip(TIPS["condition_on_previous_text"])
         self._fields["condition_on_previous_text"] = w
         f.addRow(w)
         return g
@@ -212,6 +404,7 @@ class SettingsWindow(QMainWindow):
         w = QPlainTextEdit()
         w.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         w.setPlainText("\n".join(load_config().get("hallucination_tails", [])))
+        w.setToolTip(TIPS["hallucination_tails"])
         self._fields["hallucination_tails"] = w
         f.addRow("Hallucination tails (one per line):", w)
         return g
@@ -221,8 +414,7 @@ class SettingsWindow(QMainWindow):
         if isinstance(widget, QComboBox):
             text = widget.currentText().strip()
             if key == "model_name":
-                # "small.en  (484 MB)" -> "small.en"
-                return text.split("  (")[0].strip()
+                return _model_of(text)   # "small.en  (484 MB) — …" -> "small.en"
             return text
         if isinstance(widget, QCheckBox):
             return widget.isChecked()
@@ -236,7 +428,9 @@ class SettingsWindow(QMainWindow):
 
     def _set_widget(self, key: str, widget: QWidget, value) -> None:
         if isinstance(widget, QComboBox):
-            if key == "model_name" and not widget.isEditable():
+            if key == "model_name":
+                widget.setEditText(str(value))
+                self._refresh_model_marks()   # re-apply availability marks
                 return
             widget.setEditText(str(value))
             return
@@ -255,12 +449,25 @@ class SettingsWindow(QMainWindow):
             return
         widget.setText(str(value))
 
+    def _device_value(self) -> str:
+        for key, btn in self._dev_btns.items():
+            if btn.isChecked():
+                return key
+        return "auto"
+
+    def _set_device(self, value: str) -> None:
+        if value in self._dev_btns:
+            self._dev_btns[value].setChecked(True)
+        else:
+            self._dev_btns["auto"].setChecked(True)
+
     def reload(self) -> None:
         """Refresh every widget from the current config (file + defaults)."""
         cfg = load_config()
         for key, widget in self._fields.items():
             if key in cfg:
                 self._set_widget(key, widget, cfg[key])
+        self._set_device(str(cfg.get("device", "auto")))
         self.status_label.setText("Settings reloaded from config.")
 
     # ---- save / revert / open ---------------------------------------------------
@@ -275,6 +482,7 @@ class SettingsWindow(QMainWindow):
                 doc = tomlkit.parse(cli._sample_config_text())
             for key, widget in self._fields.items():
                 doc[key] = self._value_for(key, widget)
+            doc["device"] = self._device_value()
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(tomlkit.dumps(doc))
         except Exception as e:
@@ -308,6 +516,19 @@ class SettingsWindow(QMainWindow):
         )
 
     def _update_status(self) -> None:
+        # model download progress (background thread)
+        if self._dl_thread is not None:
+            if self._dl_thread.is_alive():
+                if self._dl_line:
+                    self.model_label.setText(self._dl_line)
+                self._update_download_btn()
+            else:
+                ok, msg = self._dl_result or (False, "unknown error")
+                self._dl_result = None
+                self.model_label.setText(
+                    f"Downloaded {self._dl_name} ✓ — ready to use"
+                    if ok else f"Download failed: {msg}")
+                self._refresh_model_marks()
         try:
             p = self._tays("status", "--json")
             st = json.loads(p.stdout)
