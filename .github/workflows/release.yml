@@ -1,0 +1,84 @@
+# Release pipeline: a tag IS the release.
+#
+# Push a v* tag (after bumping the version in the repo) and this workflow:
+#   check   — verifies the tag matches pyproject.toml and __init__.py
+#   build   — sdist + wheel (pypa/build) and a .deb (build-deb.sh)
+#   release — publishes a GitHub release with the CHANGELOG slice as notes
+#
+# Deliberately NOT here (manual, needs your accounts):
+#   PyPI upload, Flathub PR, Copr build, AUR PKGBUILD hash update (RELEASES.md).
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify tag matches project version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PYVER="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          INIT="$(grep -m1 -oE '__version__ = "[^"]+"' src/type_as_you_speak/__init__.py | cut -d'"' -f2)"
+          echo "tag=$TAG  pyproject=$PYVER  __init__=$INIT"
+          if [ "$TAG" != "$PYVER" ] || [ "$TAG" != "$INIT" ]; then
+            echo "::error::version mismatch: tag=$TAG pyproject=$PYVER __init__=$INIT"
+            exit 1
+          fi
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist and wheel
+        uses: pypa/build@v0
+      - name: Build .deb
+        run: bash packaging/deb/build-deb.sh
+      - name: Show artifacts
+        run: ls -lh dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts
+          path: dist/
+      - name: CHANGELOG slice for the notes
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VER" '
+            /^## \[/{ if (found) exit; found = index($0, "[" ver "]") > 0 }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          [ -s release-notes.md ] || { echo "::error::no CHANGELOG entry for $VER"; exit 1; }
+          echo "---"; cat release-notes.md
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: dist/*
