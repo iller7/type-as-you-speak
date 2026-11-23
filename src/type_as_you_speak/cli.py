@@ -16,7 +16,9 @@ The session is always managed via a PID file in the XDG state dir
 consistent no matter how `tays` was launched.
 """
 import argparse
+import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -104,14 +106,15 @@ def _log_line(msg: str) -> None:
         pass
 
 
-# ---- audio output mute (while the mic is live, keep output silent) ------------
+# ---- audio output ducking (keep background audible but quiet while mic is live)
 def _dry() -> bool:
     return os.environ.get("DICTATE_DRY_RUN") == "1"
 
 
 def _mute(mute: bool) -> None:
+    """Legacy hard mute — only used when duck_volume_pct = 0."""
     if mute and _dry():
-        return  # dry-run: no side effects (don't mute the user's audio)
+        return  # dry-run: no side effects (don't touch the user's audio)
     try:
         subprocess.run(["pactl", "set-sink-mute", "@DEFAULT_SINK@",
                         "1" if mute else "0"],
@@ -119,6 +122,142 @@ def _mute(mute: bool) -> None:
                        timeout=5)
     except Exception:
         pass
+
+
+def _duck_state_file() -> Path:
+    return _state_dir() / "duck.json"
+
+
+def _read_duck_state() -> dict | None:
+    try:
+        return json.loads(_duck_state_file().read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def _write_duck_state(st: dict) -> None:
+    try:
+        _state_dir().mkdir(parents=True, exist_ok=True)
+        _duck_state_file().write_text(json.dumps(st))
+    except OSError:
+        pass
+
+
+def _clear_duck_state() -> None:
+    try:
+        _duck_state_file().unlink()
+    except OSError:
+        pass
+
+
+def _sink_volume_pct() -> int | None:
+    try:
+        out = subprocess.run(["pactl", "get-sink-volume", "@DEFAULT_SINK@"],
+                             capture_output=True, text=True, timeout=5).stdout
+        m = re.search(r"(\d+)%", out)
+        return int(m.group(1)) if m else None
+    except Exception:
+        return None
+
+
+def _sink_muted() -> bool:
+    try:
+        out = subprocess.run(["pactl", "get-sink-mute", "@DEFAULT_SINK@"],
+                             capture_output=True, text=True, timeout=5).stdout
+        return "yes" in out
+    except Exception:
+        return False
+
+
+def _sink_set_volume(pct: int) -> None:
+    try:
+        subprocess.run(["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{pct}%"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                       timeout=5)
+    except Exception:
+        pass
+
+
+def _ramp_volume(target_pct: int, ramp_ms: int) -> None:
+    """Step the default sink's volume toward the target — a perceptually
+    smooth fade rather than a jump (pactl has no native fade)."""
+    cur = _sink_volume_pct()
+    if cur is None or abs(cur - target_pct) < 1:
+        return
+    steps = max(2, min(12, int(ramp_ms) // 40))
+    per = max(int(ramp_ms) / steps / 1000.0, 0.01)
+    for i in range(1, steps + 1):
+        _sink_set_volume(round(cur + (target_pct - cur) * i / steps))
+        time.sleep(per)
+
+
+def _duck_cfg() -> tuple[int, int]:
+    cfg = _config.load_config()
+    return (int(cfg.get("duck_volume_pct", 5)),
+            int(cfg.get("duck_ramp_ms", 400)))
+
+
+def _duck_on(pid: int) -> None:
+    """Lower background audio for the duration of a session (ducking).
+    duck_volume_pct = 0 keeps the legacy hard-mute behaviour. The previous
+    volume is saved (state file, before the ramp) so a hard-killed session
+    can still be undone — see _duck_restore_stale."""
+    if _dry():
+        return  # dry-run: no side effects on the user's audio
+    st = _read_duck_state()
+    if st and st.get("pid") and st["pid"] != pid and _alive(st["pid"]):
+        return  # another live session already owns the duck state
+    target, ramp = _duck_cfg()
+    if target <= 0:
+        _mute(True)
+        _write_duck_state({"legacy_mute": True, "pid": pid})
+        return
+    if _sink_muted():
+        return  # already silent — nothing to duck, nothing to restore
+    cur = _sink_volume_pct()
+    if cur is None or cur <= target:
+        return  # no sink, or already quieter than the duck level
+    _write_duck_state({"volume_pct": cur, "pid": pid})
+    _ramp_volume(target, ramp)
+    _log_line(f"ducked output to {target}% (was {cur}%)")
+
+
+def _restore_duck(st: dict) -> None:
+    if st.get("legacy_mute"):
+        _mute(False)
+    else:
+        _, ramp = _duck_cfg()
+        _ramp_volume(int(st["volume_pct"]), ramp)
+    _clear_duck_state()
+
+
+def _duck_off() -> None:
+    """Restore background audio after a session ends (no-op if nothing ducked)."""
+    if _dry():
+        return
+    st = _read_duck_state()
+    if st is None:
+        return
+    pid = st.get("pid")
+    if pid is not None and pid != os.getpid() and _alive(pid):
+        return  # a live session still owns the duck state
+    _restore_duck(st)
+    _log_line("output volume restored")
+
+
+def _duck_restore_stale() -> None:
+    """A hard-killed session can leave the output ducked. On the next start,
+    if the state file points at a dead session, restore the volume first."""
+    if _dry():
+        return
+    st = _read_duck_state()
+    if st is None:
+        return
+    pid = st.get("pid")
+    if pid is not None and _alive(pid):
+        return  # a live session owns it
+    _log_line("restoring ducked volume left by a dead session")
+    _restore_duck(st)
 
 
 def _notify(summary: str, body: str) -> None:
@@ -204,20 +343,21 @@ def cmd_start(_args) -> int:
         os.environ["DICTATE_MODEL"] = _args.model
     _write_pid(os.getpid())
     _log_line(f"START (foreground) pid={os.getpid()}")
-    _mute(True)
+    _duck_restore_stale()   # a hard-killed session may have left output ducked
+    _duck_on(os.getpid())
     try:
         from . import engine
         return engine.main()
     finally:
         _remove_pid()
-        _mute(False)  # engine already unmutes on exit; idempotent safety net
+        _duck_off()  # engine already restores on exit; idempotent safety net
 
 
 def cmd_stop(_args) -> int:
     running, pid = _is_running()
     if not running:
         print("type-as-you-speak: not running")
-        _mute(False)
+        _duck_off()
         return 0
     _log_line(f"STOP (manual) session_pid={pid}")
     try:
@@ -234,8 +374,8 @@ def cmd_stop(_args) -> int:
         except ProcessLookupError:
             pass
     _remove_pid()
-    _mute(False)
-    _notify("Dictation", "Stopped — output un-muted.")
+    _duck_off()
+    _notify("Dictation", "Stopped — output volume restored.")
     print("type-as-you-speak: stopped")
     return 0
 
@@ -271,7 +411,7 @@ def cmd_toggle(_args) -> int:
 
     time.sleep(1.2)
     if child.poll() is not None:
-        _mute(False)  # it may have muted before dying; be safe
+        _duck_off()  # it may have ducked before dying; be safe
         print(f"type-as-you-speak: session failed to start "
               f"(exit {child.returncode}); see {_logfile()}", file=sys.stderr)
         return 1
