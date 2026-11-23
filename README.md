@@ -172,17 +172,26 @@ pip install 'type-as-you-speak[gui]'   # PySide6 + tomlkit (not in the core)
 tays gui
 ```
 
-It shows a live start/stop panel (driven by `tays status --json`) and every
-config option — model & device, pacing, background-audio ducking, decode
-stability, hotwords (inline and file) and the hallucination-tail list.
+It shows a live start/stop panel (driven by `tays status --json`, naming the
+exact runtime device — e.g. "small.en on NVIDIA GeForce RTX 5090 (CUDA)") and
+every config option, on two tabs:
+
+- **General** — Model & device, Background audio, Corrections
+- **Advanced** — Typing & pacing, Decode stability
+
+Details:
 
 - **Model picker** marks each model *downloaded* / *not downloaded*; the
   **Download** button fetches the selected model on demand (it would be
   fetched at session start anyway — this just makes it visible and safe).
-- **Device** is a radio choice (Auto / CUDA / CPU) — CUDA is greyed out on
-  machines without an NVIDIA GPU.
-- **Language** is a dropdown (editable for the long tail).
-- **Hover any field** for a short explanation of what it does.
+- **Device** is a radio choice (Auto / GPU-CUDA / GPU-ROCm(AMD) / CPU) —
+  each vendor option appears only when that vendor's GPU is present, and is
+  greyed out with a reason otherwise. AMD ROCm needs CTranslate2's ROCm
+  wheel (the standard pip install is CUDA/CPU only).
+- **Language** is a dropdown with flags and native names
+  (🇬🇧 English, 🇫🇷 Français, … — editable for the long tail).
+- **Hover any field** and the window's status bar explains what it does
+  (plus a native tooltip).
 
 **Save** writes your `config.toml` preserving its comments; **Revert**
 reloads it; **Open config file** opens it in your editor. Changes apply to
@@ -202,7 +211,7 @@ cp config/default.toml ~/.config/type-as-you-speak/config.toml
 | key | default | what it does |
 |---|---|---|
 | `model_name` | `small.en` | any faster-whisper model (`tiny.en`…`medium.en`…`large-v3`); see `tays models` |
-| `device` | `auto` | `auto` = GPU if it fits else CPU · `cuda` = force GPU · `cpu` = force CPU |
+| `device` | `auto` | `auto` = GPU if it fits else CPU · `cuda` = force NVIDIA GPU · `rocm` = force AMD GPU (needs the ROCm CTranslate2 build) · `cpu` = force CPU |
 | `language` | `en` | Whisper language code |
 | `cpu_threads` | `2` | cap on CTranslate2's CPU-side threads (narrows the per-round CPU burst) |
 | `commit_lag_s` | `1.2` | how long a word is held before it's typed (the "Mac-like" lag) |

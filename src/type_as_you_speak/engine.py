@@ -30,6 +30,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 # ---- configuration ----------------------------------------------------------
 # All tunables live in config.py (defaults in config/default.toml), overridable
@@ -41,6 +42,47 @@ except ImportError:      # also allow running the file directly
     import config as _cfgmod
 
 CFG = _cfgmod.load_config()
+
+# What build_model() actually resolved (model, device) — written to live.json
+# so `tays status --json` (GUI, applet) can report the EXACT runtime device.
+RUNTIME: dict = {}
+
+
+def _live_state_file() -> Path:
+    xdg = os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state"))
+    return Path(xdg) / "type-as-you-speak" / "live.json"
+
+
+def _write_live_state() -> None:
+    import json
+    try:
+        p = _live_state_file()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        st = {"pid": os.getpid()}
+        st.update(RUNTIME)
+        p.write_text(json.dumps(st))
+    except Exception:
+        pass
+
+
+def _clear_live_state() -> None:
+    try:
+        _live_state_file().unlink()
+    except OSError:
+        pass
+
+
+def _detect_gpu_name() -> str | None:
+    """Human-readable GPU name, if a driver exposes one (for logging)."""
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=5).stdout.strip().splitlines()
+        if out and out[0].strip():
+            return out[0].strip()
+    except Exception:
+        pass
+    return None
 
 
 def _log(msg):
@@ -319,8 +361,12 @@ def build_model():
       auto  (default) — GPU if it can hold a model, else CPU.
                         (Ollama may be reserving most of the VRAM for its KV
                         cache, so a big model can fail and a smaller one fit.)
-      cuda             — force the GPU; if nothing loads, fail clearly rather
-                        than silently fall back to slow CPU.
+      cuda             — force the NVIDIA GPU; if nothing loads, fail clearly
+                         rather than silently falling back to slow CPU.
+      rocm             — force an AMD GPU. CTranslate2's ROCm build exposes
+                         the GPU through the same "cuda" device string (HIP),
+                         so this path is shared — the difference is the build:
+                         standard pip wheels are CUDA/CPU only.
       cpu              — force CPU (int8); never touch the GPU.
 
     `model_name` is the primary choice. On the GPU we try it first, then fall
@@ -338,18 +384,25 @@ def build_model():
     if device == "cpu":
         m = WhisperModel(name, device="cpu", compute_type="int8")
         _log(f"model: {name} on cpu (int8) [device=cpu]")
+        RUNTIME.update(model=name, device="cpu")
         return m
 
-    # device in (auto, cuda): try the GPU, biggest model that fits first.
+    # device in (auto, cuda, rocm): try the GPU, biggest model that fits first.
+    # (A CTranslate2 ROCm build presents its AMD GPU as a "cuda" device via
+    # HIP, so all GPU paths use the same device string.)
+    gpu_label = device if device in ("cuda", "rocm") else "cuda"
+    actual_gpu = _detect_gpu_name()
     ladder = [name] + [n for n in ("medium.en", "small.en", "base.en") if n != name]
     for cand in ladder:
         try:
             m = WhisperModel(cand, device="cuda", compute_type="float16",
                              cpu_threads=cpu_threads)
-            _log(f"model: {cand} on cuda (cpu_threads={cpu_threads})")
+            _log(f"model: {cand} on {gpu_label} (cpu_threads={cpu_threads})"
+                 + (f" [actual GPU: {actual_gpu}]" if actual_gpu else ""))
+            RUNTIME.update(model=cand, device=gpu_label)
             return m
         except Exception as e:
-            _log(f"cuda {cand} unavailable ({e!r})")
+            _log(f"{gpu_label} {cand} unavailable ({e!r})")
 
     # No GPU model loaded.
     if device == "cuda":
@@ -357,8 +410,15 @@ def build_model():
             "device=cuda was requested but no CUDA model could load. Check the "
             "NVIDIA driver, and that faster-whisper is built with CUDA support "
             "(on a fresh install: `pip install -U faster-whisper`).")
+    if device == "rocm":
+        raise RuntimeError(
+            "device=rocm was requested but no GPU model could load. AMD ROCm "
+            "support needs CTranslate2's ROCm wheel — the standard pip wheel "
+            "is CUDA/CPU only. See https://github.com/OpenNMT/CTranslate2/releases "
+            "for the ROCm build (then reinstall faster-whisper against it).")
     m = WhisperModel(name, device="cpu", compute_type="int8")
     _log(f"model: {name} on cpu (int8)")
+    RUNTIME.update(model=name, device="cpu")
     return m
 
 
@@ -553,6 +613,7 @@ def main():
     finally:
         reader.close()
         unmute_out()
+        _clear_live_state()
     return exit_code
 
 
@@ -560,6 +621,7 @@ def run_session(reader, t0):
 
     _preload_nvidia()
     model = build_model()
+    _write_live_state()   # status/GUI/applet can now report the exact device
     vad = get_vad()
 
     def warmup():

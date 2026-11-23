@@ -20,7 +20,8 @@ language = "en"
 
 # Device:
 #   "auto" — use the GPU if it can hold a model, else fall back to CPU (default)
-#   "cuda" — force the GPU (fail clearly if none is usable)
+#   "cuda" — force the NVIDIA GPU (fail clearly if none is usable)
+#   "rocm" — force an AMD GPU (needs CTranslate2's ROCm wheel)
 #   "cpu"  — force CPU, never touch the GPU (slower)
 device = "auto"
 

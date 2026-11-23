@@ -7,6 +7,18 @@ and the project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Settings GUI — `tays gui`** (optional `gui` extra: PySide6 + tomlkit):
+  a window to pick models and options instead of editing TOML — General
+  tab (Model & device, Background audio, Corrections) and Advanced tab
+  (Typing & pacing, Decode stability). Model picker marks each model
+  *downloaded* / *not downloaded* with an on-demand **Download** button;
+  device is a radio choice (Auto / GPU-CUDA / GPU-ROCm(AMD) / CPU — vendor
+  options greyed out with a reason when absent); language is a dropdown of
+  flags + native names; hovering any field shows what it does. Saving
+  preserves the config file's comments.
+- **`status --json` / `stop --json` / `toggle --json`:** machine-readable
+  state (running, pid, model, device, **and the exact runtime GPU**) —
+  the contract desktop applets drive the app through.
 - **Audio ducking instead of hard-mute:** while the mic is live the
   default sink is lowered to `duck_volume_pct` (default 5%) with a
   graceful fade (`duck_ramp_ms`, default 400 ms) and ramped back up on
@@ -25,6 +37,14 @@ and the project follows [Semantic Versioning](https://semver.org/).
   session continues on CPU `small.en` int8 (was `base.en`).
 
 ### Fixed
+- **GUI model download result clobbered:** the status timer re-consumed the
+  finished download every tick, so the true outcome (e.g. a successful
+  "Downloaded ✓") was overwritten by "unknown error" a second later. The
+  result is now consumed exactly once; the final message stays. Related:
+  `large-v3-turbo` was always shown "not downloaded" (its Hugging Face repo
+  is `mobiuslabsgmbh/…`, not `Systran/…`) — availability now resolves the
+  repo via faster-whisper's own mapping, and downloads log to
+  `~/.local/state/type-as-you-speak/model-download.log`.
 - **Degenerate decodes under GPU contention** (observed with Ollama serving
   on the same GPU): repetition loops (`Cl- Cl- Cl-`), re-emitted phrases
   (the same sentence typed 3–4×), and mishears. Suppressed at the decode

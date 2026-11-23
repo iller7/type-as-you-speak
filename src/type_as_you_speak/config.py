@@ -16,7 +16,7 @@ DEFAULTS = {
     # model / device
     "model_name": "small.en",       # default: good everyday balance (tiny/base/small.en, medium.en, large-v3, …)
     "language": "en",
-    "device": "auto",               # auto | cuda | cpu   (auto = GPU if present, else CPU)
+    "device": "auto",               # auto | cuda | rocm | cpu   (auto = GPU if present, else CPU)
     "cpu_threads": 2,               # CTranslate2 CPU-side threads (caps the per-round CPU spike)
     # typing
     "type_ms": 5,                   # ydotool ms per key (raise to 10 if an app drops chars)
