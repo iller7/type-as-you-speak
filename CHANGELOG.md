@@ -30,6 +30,10 @@ and the project follows [Semantic Versioning](https://semver.org/).
   run stamped faster than ~0.1 s per word is dropped, and a trailing word
   whose audio span has no VAD speech energy is dropped (max two, real words
   untouched).
+- **Hotword prompt leaks:** whisper can re-emit the hotword prompt itself as
+  "transcription" (observed: `for the Linux, glue, productised, per-disk,
+  for all the` stamped over 0.06 s). A segment naming 3+ distinct hotwords
+  is now dropped as a leak and logged; the real words around it survive.
 - **Tail recovery re-decoding your silence:** the leftover-audio recovery
   path now checks the VAD first (its own comment always claimed it did) —
   a silent tail is consumed instead of being re-decoded into a hallucinated
