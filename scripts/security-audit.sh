@@ -12,7 +12,7 @@
 # explicitly (reviewed, deliberate):
 #   python -m pip_audit -i <VULN-ID> ...
 set -euo pipefail
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/.."
 
 WHEEL="$(ls dist/*.whl 2>/dev/null | head -n1 || true)"
 [ -n "$WHEEL" ] || { echo "::error::no wheel in dist/ — run 'python -m build' first"; exit 1; }
