@@ -20,7 +20,7 @@ three artifacts attached).
    ```sh
    git commit -am "chore: release X.Y.Z"   # or your feature commit(s) first
    git tag -a vX.Y.Z -m "X.Y.Z — short summary"
-   git push origin main vX.Y.Z
+   git push origin master vX.Y.Z
    ```
 3. **Watch the workflow** (3 green jobs: `check`, `build`, `release`):
    ```sh
