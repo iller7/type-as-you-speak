@@ -31,6 +31,11 @@ DEFAULTS = {
     "prompt_tail_words": 12,        # committed words used as context for the next chunk
     "max_session_s": 600.0,         # safety cap only (10 min) so a forgotten session can't run forever
     "prebuf_cap_s": 15.0,           # keep at most this much audio recorded during model load
+    # Decode stability (matters when the GPU is busy — e.g. Ollama on the same card):
+    # under contention the beam search degenerates into repetition loops
+    # ("Cl- Cl- Cl-") and re-emitted phrases. These two suppress that at the source.
+    "no_repeat_ngram_size": 2,      # 0 = off; block repeated N-grams (kills the repetition loops)
+    "condition_on_previous_text": False,  # don't let whisper re-emit earlier segments in a call
     # Whisper "end-of-speech" hallucinations: when it hits trailing silence it emits a
     # stock closing line (or re-emits your last phrase). These trailing phrases are
     # stripped before typing (see clean_hallucinations in engine.py). Add any you spot.
@@ -51,6 +56,10 @@ DEFAULTS = {
     ],
 }
 
+def _env_bool(raw: str) -> bool:
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
 # Environment variable -> config key (quick overrides).
 _ENV_MAP = {
     "DICTATE_MODEL": ("model_name", str),
@@ -60,6 +69,8 @@ _ENV_MAP = {
     "DICTATE_CPU_THREADS": ("cpu_threads", int),
     "DICTATE_COMMIT_LAG_S": ("commit_lag_s", float),
     "DICTATE_TRANSCRIBE_EVERY_S": ("transcribe_every_s", float),
+    "DICTATE_NO_REPEAT_NGRAM_SIZE": ("no_repeat_ngram_size", int),
+    "DICTATE_CONDITION_ON_PREVIOUS_TEXT": ("condition_on_previous_text", _env_bool),
 }
 
 

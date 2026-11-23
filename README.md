@@ -182,6 +182,8 @@ cp config/default.toml ~/.config/type-as-you-speak/config.toml
 | `transcribe_every_s` | `0.9` | how often the pending audio is re-transcribed |
 | `type_ms` | `5` | ydotool ms per key (raise to `10` if an app drops characters) |
 | `hallucination_tails` | *(list)* | trailing phrases stripped before typing (add any you spot) |
+| `no_repeat_ngram_size` | `2` | blocks repeated N-grams in the decode (suppresses `Cl- Cl- Cl-` loops when the GPU is busy; `0` = off) |
+| `condition_on_previous_text` | `false` | `false` = segments don't re-emit earlier text (suppresses duplicated phrases) |
 
 Per-run overrides without editing the file:
 

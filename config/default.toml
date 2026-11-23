@@ -69,6 +69,18 @@ max_session_s = 600.0
 # Keep at most this much audio buffered while the model loads (seconds).
 prebuf_cap_s = 15.0
 
+# ---- decode stability ---------------------------------------------------------
+# When the GPU is busy (e.g. Ollama serving on the same card), Whisper's beam
+# search can degenerate into repetition loops ("Cl- Cl- Cl-") and re-emitted
+# phrases. These two suppress that at the source. Set both to 0 / true to get
+# the old behaviour back.
+# 0 = off; >0 = the model may not repeat any N-gram of this size.
+no_repeat_ngram_size = 2
+
+# false = each transcription segment is independent (no re-emission of earlier
+# segments). true = older Whisper behaviour.
+condition_on_previous_text = false
+
 # ---- Whisper "end-of-speech" hallucinations -----------------------------------
 # On trailing silence Whisper emits a stock closing line (or re-emits your last
 # phrase). Any *trailing* phrase in this list is stripped before it's typed.
