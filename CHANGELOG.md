@@ -7,6 +7,12 @@ and the project follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Audio ducking instead of hard-mute:** while the mic is live the
+  default sink is lowered to `duck_volume_pct` (default 5%) with a
+  graceful fade (`duck_ramp_ms`, default 400 ms) and ramped back up on
+  stop — background music keeps playing quietly. `duck_volume_pct = 0`
+  restores the old hard-mute. A hard-killed session's duck state is
+  restored on the next start.
 - **`hotwords` + `hotwords_file` config keys:** bias the decoder toward
   words Whisper otherwise mishears (proper nouns, names, jargon).
   `hotwords` is an inline comma-separated list; `hotwords_file` points at a
