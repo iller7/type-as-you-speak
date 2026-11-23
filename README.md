@@ -185,6 +185,7 @@ cp config/default.toml ~/.config/type-as-you-speak/config.toml
 | `no_repeat_ngram_size` | `2` | blocks repeated N-grams in the decode (suppresses `Cl- Cl- Cl-` loops when the GPU is busy; `0` = off) |
 | `condition_on_previous_text` | `false` | `false` = segments don't re-emit earlier text (suppresses duplicated phrases) |
 | `hotwords` | *(empty)* | words/phrases to bias the decoder toward (proper nouns, names, jargon); comma-separated |
+| `hotwords_file` | *(empty)* | path to a hotwords text file (one per line, `#` comments) — a shareable list; combined with the inline `hotwords` |
 
 Per-run overrides without editing the file:
 

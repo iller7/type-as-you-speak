@@ -39,6 +39,11 @@ DEFAULTS = {
     # Bias the decoder toward words it otherwise mishears (proper nouns, jargon,
     # names). Plain string, separate entries with commas; "" = off.
     "hotwords": "",
+    # Optional text file of hotwords (one per line, '#' comments and blank
+    # lines ignored) — shareable with other users. Combined with the inline
+    # list above. "" = no file; a missing/unreadable file is skipped with a
+    # warning (the inline list still applies).
+    "hotwords_file": "",
     # Whisper "end-of-speech" hallucinations: when it hits trailing silence it emits a
     # stock closing line (or re-emits your last phrase). These trailing phrases are
     # stripped before typing (see clean_hallucinations in engine.py). Add any you spot.
@@ -75,6 +80,7 @@ _ENV_MAP = {
     "DICTATE_NO_REPEAT_NGRAM_SIZE": ("no_repeat_ngram_size", int),
     "DICTATE_CONDITION_ON_PREVIOUS_TEXT": ("condition_on_previous_text", _env_bool),
     "DICTATE_HOTWORDS": ("hotwords", str),
+    "DICTATE_HOTWORDS_FILE": ("hotwords_file", str),
 }
 
 
