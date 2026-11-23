@@ -3,31 +3,37 @@
 A single window to pick the model and every other option instead of editing
 config.toml by hand:
 
-  * session panel — live status (polled from ``tays status --json``) and a
-    start/stop button (drives ``tays toggle`` / ``tays stop`` as subprocesses,
+  * session panel — live status (polled from ``tays status --json``, showing
+    the EXACT runtime device, e.g. "small.en on NVIDIA GeForce RTX 5090
+    (CUDA)") and a start/stop button (drives ``tays toggle`` as a subprocess,
     so the engine always runs in its own process, exactly like the CLI);
-  * model & device, timing, audio ducking, decode stability, and corrections
-    (hotwords inline + file, hallucination-tail list).
+  * General tab — Model & device (with downloaded marks + Download button,
+    Auto / GPU-CUDA / GPU-ROCm(AMD) / CPU radios), Background audio ducking,
+    Corrections (hotwords inline + file, hallucination tails);
+  * Advanced tab — Typing & pacing, Decode stability.
 
-Saving writes ``~/.config/type-as-you-speak/config.toml`` with ``tomlkit`` in a
-way that preserves the file's existing comments and layout. Requires the
-optional ``gui`` extra (PySide6 + tomlkit); the core stays lean.
+Every field carries a hover tooltip AND a context-help line in the window's
+status bar (shown as you hover — robust across desktops). Saving writes
+``~/.config/type-as-you-speak/config.toml`` with ``tomlkit`` in a way that
+preserves the file's existing comments and layout. Requires the optional
+``gui`` extra (PySide6 + tomlkit); the core stays lean.
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QIcon
+from PySide6.QtCore import QEvent, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QIcon, Qt
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox,
     QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMessageBox, QPushButton, QPlainTextEdit, QRadioButton,
-    QSpinBox, QVBoxLayout, QWidget,
+    QSpinBox, QTabWidget, QVBoxLayout, QWidget,
 )
 
 import tomlkit
@@ -36,7 +42,7 @@ from . import __version__
 from . import cli
 from .config import load_config, user_config_path
 
-# Spin-box ranges (key -> (min, max, single-step, decimals)).
+# Spin-box ranges (key -> (min, max, single-step)).
 _SPIN_INT = {
     "cpu_threads": (1, 32, 1),
     "type_ms": (1, 50, 1),
@@ -49,27 +55,99 @@ _SPIN_FLOAT = {
     "transcribe_every_s": (0.3, 3.0, 0.1),
 }
 
-# Languages offered in the picker (Whisper language codes; the combo stays
-# editable for the long tail).
+# Language picker entries: (code stored in config, native name, flag).
 LANGUAGES = [
-    "auto", "en", "de", "fr", "es", "it", "pt", "nl", "pl", "ru", "uk",
-    "zh", "ja", "ko", "hi", "ar", "tr", "sv", "da", "no", "fi", "cs",
-    "hu", "ro", "el", "he", "vi", "th", "id", "ms", "tl", "ca", "et",
-    "lv", "lt", "sk", "sl", "hr", "sr", "bg", "fa", "pa", "ta", "te",
-    "bn", "my", "km", "ne", "sw", "af", "sq", "is", "mt", "gl", "eu",
+    ("auto", "Auto-detect", "🌐"),
+    ("en", "English", "🇬🇧"),
+    ("de", "Deutsch", "🇩🇪"),
+    ("fr", "Français", "🇫🇷"),
+    ("es", "Español", "🇪🇸"),
+    ("it", "Italiano", "🇮🇹"),
+    ("pt", "Português", "🇵🇹"),
+    ("nl", "Nederlands", "🇳🇱"),
+    ("pl", "Polski", "🇵🇱"),
+    ("ru", "Русский", "🇷🇺"),
+    ("uk", "Українська", "🇺🇦"),
+    ("zh", "中文", "🇨🇳"),
+    ("ja", "日本語", "🇯🇵"),
+    ("ko", "한국어", "🇰🇷"),
+    ("hi", "हिन्दी", "🇮🇳"),
+    ("ar", "العربية", "🇸🇦"),
+    ("tr", "Türkçe", "🇹🇷"),
+    ("sv", "Svenska", "🇸🇪"),
+    ("da", "Dansk", "🇩🇰"),
+    ("no", "Norsk", "🇳🇴"),
+    ("fi", "Suomi", "🇫🇮"),
+    ("cs", "Čeština", "🇨🇿"),
+    ("hu", "Magyar", "🇭🇺"),
+    ("ro", "Română", "🇷🇴"),
+    ("el", "Ελληνικά", "🇬🇷"),
+    ("he", "עברית", "🇮🇱"),
+    ("vi", "Tiếng Việt", "🇻🇳"),
+    ("th", "ไทย", "🇹🇭"),
+    ("id", "Bahasa Indonesia", "🇮🇩"),
+    ("ms", "Bahasa Melayu", "🇲🇾"),
+    ("tl", "Filipino", "🇵🇭"),
+    ("ca", "Català", "🇦🇩"),
+    ("et", "Eesti", "🇪🇪"),
+    ("lv", "Latviešu", "🇱🇻"),
+    ("lt", "Lietuvių", "🇱🇹"),
+    ("sk", "Slovenčina", "🇸🇰"),
+    ("sl", "Slovenščina", "🇸🇮"),
+    ("hr", "Hrvatski", "🇭🇷"),
+    ("sr", "Srpski", "🇷🇸"),
+    ("bg", "Български", "🇧🇬"),
+    ("fa", "فارسی", "🇮🇷"),
+    ("pa", "ਪੰਜਾਬੀ", "🇮🇳"),
+    ("ta", "தமிழ்", "🇮🇳"),
+    ("te", "తెలుగు", "🇮🇳"),
+    ("bn", "বাংলা", "🇧🇩"),
+    ("my", "မြန်မာ", "🇲🇲"),
+    ("km", "ខ្មែរ", "🇰🇭"),
+    ("ne", "नेपाली", "🇳🇵"),
+    ("sw", "Kiswahili", "🇰🇪"),
+    ("af", "Afrikaans", "🇿🇦"),
+    ("sq", "Shqip", "🇦🇱"),
+    ("is", "Íslenska", "🇮🇸"),
+    ("mt", "Malti", "🇲🇹"),
+    ("gl", "Galego", "🇬🇱"),
+    ("eu", "Euskara", "🇪🇺"),
 ]
 
-# Hover explanations for every field (grounded in the README).
+
+def _lang_display(code: str) -> str | None:
+    for c, native, flag in LANGUAGES:
+        if c == code:
+            return f"{flag} Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
+    return None
+
+
+def _lang_code(text: str) -> str:
+    t = text.strip()
+    for c, native, flag in LANGUAGES:
+        disp = f"{flag} Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
+        if t == disp:
+            return c
+    m = re.search(r"\(([a-z]{2,3})\)\s*$", t)
+    return m.group(1) if m else (t or "auto")
+
+
+# Hover explanations for every field (grounded in the README). Also shown in
+# the window's status bar as you hover (context-sensitive help).
 TIPS = {
     "model_name": ("Whisper model: larger = more accurate but slower. The .en "
                    "models are English-only and the fastest for English. "
                    "'Not downloaded' models are fetched on demand — use the "
                    "Download button."),
-    "device": ("auto: GPU if present, else CPU.  cuda: force the NVIDIA GPU.  "
-               "cpu: always CPU — less VRAM and smaller per-round CPU spikes "
-               "(useful when the GPU is busy, e.g. Ollama)."),
-    "language": ("Force a language, or 'auto' to detect per session. Picking "
-                 "the right one improves accuracy and speed."),
+    "device": ("auto: use the GPU if a model fits, else CPU.  "
+               "cuda: force the NVIDIA GPU.  rocm: force an AMD GPU.  "
+               "cpu: never touch the GPU — less VRAM and smaller per-round "
+               "CPU spikes (useful when the GPU is busy, e.g. Ollama)."),
+    "device_rocm": ("AMD GPU via ROCm. Needs CTranslate2's ROCm wheel — the "
+                    "standard pip install is CUDA/CPU only (see the "
+                    "CTranslate2 releases page for the ROCm build)."),
+    "language": ("Force a language, or Auto-detect per session. Picking the "
+                 "right one improves accuracy and speed."),
     "cpu_threads": ("CPU threads for the model (CTranslate2). Raise if "
                     "transcription is slow; lower to cap the per-round CPU "
                     "spike."),
@@ -96,6 +174,16 @@ TIPS = {
                             "trailing silence. A matching tail is stripped "
                             "before typing."),
 }
+
+
+def _icon() -> QIcon | None:
+    """The project icon (repo ``data/icons/``), when we can find it."""
+    here = Path(__file__).resolve()
+    for base in (here.parents[2], here.parents[1]):
+        p = base / "data" / "icons" / "type-as-you-speak.svg"
+        if p.is_file():
+            return QIcon(str(p))
+    return None
 
 
 def _hf_hub_dir() -> Path:
@@ -125,30 +213,43 @@ def _model_available(name: str) -> bool:
     return (d / "snapshots").is_dir()
 
 
-def _gpu_present() -> bool:
-    """An NVIDIA GPU the driver can see (nvidia-smi -L)."""
-    if not shutil.which("nvidia-smi"):
-        return False
+def _nvidia_gpu() -> str | None:
     try:
-        p = subprocess.run(["nvidia-smi", "-L"], capture_output=True, timeout=5)
-        return p.returncode == 0 and b"GPU" in (p.stdout or b"")
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=5).stdout.strip().splitlines()
+        return out[0].strip() if out and out[0].strip() else None
     except Exception:
-        return False
+        return None
+
+
+def _amd_gpu() -> str | None:
+    """A short name for an AMD GPU, if one is present (rocm-smi, then lspci)."""
+    try:
+        out = subprocess.run(["rocm-smi", "--showproductname"],
+                             capture_output=True, text=True, timeout=8).stdout
+        m = re.search(r"Card\[\d+\]\s*-\s*(.+)", out)
+        if m:
+            return m.group(1).strip()
+    except Exception:
+        pass
+    try:
+        out = subprocess.run(["lspci"], capture_output=True, text=True,
+                             timeout=5).stdout
+        for line in out.splitlines():
+            if re.search(r"VGA|3D controller|Display controller", line) \
+                    and re.search(r"AMD|ATI", line):
+                name = line.split(":", 2)[-1].strip()
+                brackets = re.findall(r"\[([^\]]+)\]", name)
+                return brackets[-1] if brackets else name
+    except Exception:
+        pass
+    return None
 
 
 def _model_of(text: str) -> str:
     """'small.en  (484 MB) — downloaded' -> 'small.en'."""
     return text.split("  (")[0].split(" — ")[0].strip()
-
-
-def _icon() -> QIcon | None:
-    """The project icon (repo ``data/icons/``), when we can find it."""
-    here = Path(__file__).resolve()
-    for base in (here.parents[2], here.parents[1]):
-        p = base / "data" / "icons" / "type-as-you-speak.svg"
-        if p.is_file():
-            return QIcon(str(p))
-    return None
 
 
 class SettingsWindow(QMainWindow):
@@ -172,9 +273,11 @@ class SettingsWindow(QMainWindow):
         sess.addWidget(self.session_btn)
         root.addLayout(sess)
 
-        # ---- settings groups --------------------------------------------------
-        # key -> widget; populated by the builders below (skips specials).
+        # ---- settings (two tabs) --------------------------------------------
+        # key -> widget; populated by the builders below.
         self._fields: dict[str, QWidget] = {}
+        # widget -> context-help text (status bar on hover)
+        self._tips: dict[QWidget, str] = {}
 
         # model download state (background thread; polled by the status timer)
         self._dl_thread: threading.Thread | None = None
@@ -182,11 +285,23 @@ class SettingsWindow(QMainWindow):
         self._dl_name = ""
         self._dl_line = ""
 
-        root.addWidget(self._model_group())
-        root.addWidget(self._timing_group())
-        root.addWidget(self._audio_group())
-        root.addWidget(self._decode_group())
-        root.addWidget(self._corrections_group())
+        general = QWidget()
+        gl = QVBoxLayout(general)
+        gl.addWidget(self._model_group())
+        gl.addWidget(self._audio_group())
+        gl.addWidget(self._corrections_group())
+        gl.addStretch(1)
+
+        advanced = QWidget()
+        al = QVBoxLayout(advanced)
+        al.addWidget(self._timing_group())
+        al.addWidget(self._decode_group())
+        al.addStretch(1)
+
+        tabs = QTabWidget()
+        tabs.addTab(general, "General")
+        tabs.addTab(advanced, "Advanced")
+        root.addWidget(tabs, 1)
 
         # ---- actions ----------------------------------------------------------
         actions = QHBoxLayout()
@@ -203,7 +318,7 @@ class SettingsWindow(QMainWindow):
 
         hint = QLabel(
             "Changes take effect for the next session — stop and start the "
-            "session to apply them.")
+            "session to apply them.  Hover any field for an explanation.")
         hint.setWordWrap(True)
         root.addWidget(hint)
 
@@ -215,10 +330,27 @@ class SettingsWindow(QMainWindow):
         self._timer.timeout.connect(self._update_status)
         self._timer.start()
 
+    # ---- context help (status bar) + tooltips --------------------------------
+    def _register(self, w: QWidget, tip: str) -> None:
+        """Wire a widget for context-sensitive help: status-bar line on hover
+        (robust across desktops) plus the native tooltip."""
+        w.setAttribute(Qt.WA_Hover, True)
+        w.installEventFilter(self)
+        if tip:
+            self._tips[w] = tip
+            w.setToolTip(tip)
+
+    def eventFilter(self, obj, ev) -> bool:
+        if ev.type() == QEvent.Type.Enter:
+            tip = self._tips.get(obj)
+            if tip:
+                self.statusBar().showMessage(tip)
+        return super().eventFilter(obj, ev)
+
     # ---- widget builders ------------------------------------------------------
     def _line(self, key: str) -> QLineEdit:
         w = QLineEdit(str(load_config().get(key, "")))
-        w.setToolTip(TIPS.get(key, ""))
+        self._register(w, TIPS.get(key, ""))
         self._fields[key] = w
         return w
 
@@ -228,7 +360,7 @@ class SettingsWindow(QMainWindow):
         w.setRange(lo, hi)
         w.setSingleStep(step)
         w.setValue(int(load_config().get(key, lo)))
-        w.setToolTip(TIPS.get(key, ""))
+        self._register(w, TIPS.get(key, ""))
         self._fields[key] = w
         return w
 
@@ -239,7 +371,7 @@ class SettingsWindow(QMainWindow):
         w.setSingleStep(step)
         w.setDecimals(2)
         w.setValue(float(load_config().get(key, lo)))
-        w.setToolTip(TIPS.get(key, ""))
+        self._register(w, TIPS.get(key, ""))
         self._fields[key] = w
         return w
 
@@ -339,7 +471,7 @@ class SettingsWindow(QMainWindow):
 
         self.model_combo = QComboBox()
         self.model_combo.setEditable(True)
-        self.model_combo.setToolTip(TIPS["model_name"])
+        self._register(self.model_combo, TIPS["model_name"])
         self.model_combo.currentTextChanged.connect(lambda _t: self._update_download_btn())
         self._fields["model_name"] = self.model_combo
 
@@ -357,34 +489,51 @@ class SettingsWindow(QMainWindow):
         f.addRow("", self.model_label)
         self._refresh_model_marks()
 
-        # device: radio buttons; CUDA is offered only when a GPU is actually
-        # present (nvidia-smi), otherwise it is greyed out with a reason.
+        # device: radio buttons; each vendor option is offered only when that
+        # vendor's GPU is actually present, otherwise greyed out with a reason.
         self._dev_btns: dict[str, QRadioButton] = {}
         self._dev_group = QButtonGroup(self)
         dev_cfg = str(load_config().get("device", "auto"))
+        nv = _nvidia_gpu()
+        amd = _amd_gpu()
+        options: list[tuple[str, str, str]] = [("auto", "Auto", TIPS["device"])]
+        if nv:
+            options.append(("cuda", f"GPU — CUDA ({nv})", TIPS["device"]))
+        else:
+            options.append(("cuda", "GPU — CUDA (NVIDIA)",
+                            "No NVIDIA GPU detected — unavailable on this machine."))
+        if amd:
+            options.append(("rocm", f"GPU — ROCm ({amd})", TIPS["device_rocm"]))
+        else:
+            options.append(("rocm", "GPU — ROCm (AMD)",
+                            "No AMD GPU detected — unavailable on this machine."))
+        options.append(("cpu", "CPU", TIPS["device"]))
         dev_row = QHBoxLayout()
-        for key, label in (("auto", "Auto"), ("cuda", "CUDA (GPU)"), ("cpu", "CPU")):
+        for key, label, tip in options:
             rb = QRadioButton(label)
-            rb.setToolTip(TIPS["device"])
-            if key == "cuda" and not _gpu_present():
-                rb.setEnabled(False)
-                rb.setToolTip("No NVIDIA GPU detected — CUDA is unavailable "
-                              "on this machine.")
+            self._register(rb, tip)
             self._dev_group.addButton(rb)
             self._dev_btns[key] = rb
             dev_row.addWidget(rb)
+        self._dev_btns["cuda"].setEnabled(bool(nv))
+        self._dev_btns["rocm"].setEnabled(bool(amd))
         target = dev_cfg if dev_cfg in self._dev_btns and self._dev_btns[dev_cfg].isEnabled() else "auto"
         self._dev_btns[target].setChecked(True)
         f.addRow("Device:", dev_row)
 
         self.lang_combo = QComboBox()
         self.lang_combo.setEditable(True)
-        self.lang_combo.setToolTip(TIPS["language"])
-        self.lang_combo.addItems(LANGUAGES)
+        self._register(self.lang_combo, TIPS["language"])
+        self.lang_combo.addItems(
+            [f"{flag} Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
+             for c, native, flag in LANGUAGES])
         lang = str(load_config().get("language", "auto"))
-        if lang not in LANGUAGES:
+        disp = _lang_display(lang)
+        if disp is None:
             self.lang_combo.insertItem(0, lang)
-        self.lang_combo.setCurrentText(lang)
+            self.lang_combo.setCurrentText(lang)
+        else:
+            self.lang_combo.setCurrentText(disp)
         self._fields["language"] = self.lang_combo
         f.addRow("Language:", self.lang_combo)
 
@@ -412,7 +561,7 @@ class SettingsWindow(QMainWindow):
         f.addRow("No-repeat N-gram size (0 = off):", self._spin("no_repeat_ngram_size"))
         w = QCheckBox("Condition on previous text")
         w.setChecked(bool(load_config().get("condition_on_previous_text", False)))
-        w.setToolTip(TIPS["condition_on_previous_text"])
+        self._register(w, TIPS["condition_on_previous_text"])
         self._fields["condition_on_previous_text"] = w
         f.addRow(w)
         return g
@@ -436,7 +585,7 @@ class SettingsWindow(QMainWindow):
         w = QPlainTextEdit()
         w.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
         w.setPlainText("\n".join(load_config().get("hallucination_tails", [])))
-        w.setToolTip(TIPS["hallucination_tails"])
+        self._register(w, TIPS["hallucination_tails"])
         self._fields["hallucination_tails"] = w
         f.addRow("Hallucination tails (one per line):", w)
         return g
@@ -446,7 +595,9 @@ class SettingsWindow(QMainWindow):
         if isinstance(widget, QComboBox):
             text = widget.currentText().strip()
             if key == "model_name":
-                return _model_of(text)   # "small.en  (484 MB) — …" -> "small.en"
+                return _model_of(text)
+            if key == "language":
+                return _lang_code(text)
             return text
         if isinstance(widget, QCheckBox):
             return widget.isChecked()
@@ -463,6 +614,10 @@ class SettingsWindow(QMainWindow):
             if key == "model_name":
                 widget.setEditText(str(value))
                 self._refresh_model_marks()   # re-apply availability marks
+                return
+            if key == "language":
+                disp = _lang_display(str(value))
+                widget.setEditText(disp or str(value))
                 return
             widget.setEditText(str(value))
             return
@@ -488,7 +643,7 @@ class SettingsWindow(QMainWindow):
         return "auto"
 
     def _set_device(self, value: str) -> None:
-        if value in self._dev_btns:
+        if value in self._dev_btns and self._dev_btns[value].isEnabled():
             self._dev_btns[value].setChecked(True)
         else:
             self._dev_btns["auto"].setChecked(True)
@@ -500,7 +655,7 @@ class SettingsWindow(QMainWindow):
             if key in cfg:
                 self._set_widget(key, widget, cfg[key])
         self._set_device(str(cfg.get("device", "auto")))
-        self.status_label.setText("Settings reloaded from config.")
+        self.statusBar().showMessage("Settings reloaded from config.")
 
     # ---- save / revert / open ---------------------------------------------------
     def save(self) -> None:
@@ -521,7 +676,8 @@ class SettingsWindow(QMainWindow):
             QMessageBox.critical(self, "Save failed",
                                  f"Could not write {path}:\n{e}")
             return
-        self.status_label.setText(f"Saved to {path} — applies to the next session.")
+        self.statusBar().showMessage(
+            f"Saved to {path} — applies to the next session.")
 
     def _open_config_file(self) -> None:
         self._open_file(str(user_config_path()))
@@ -546,6 +702,20 @@ class SettingsWindow(QMainWindow):
             [sys.executable, "-m", "type_as_you_speak", *args],
             capture_output=True, text=True, timeout=30,
         )
+
+    def _status_line(self, st: dict) -> str:
+        model = st.get("model", "?")
+        dev = str(st.get("device", "?"))
+        if st.get("running"):
+            gpu = st.get("gpu")
+            if gpu:
+                on = f"{gpu} ({dev.upper()})"
+            elif dev == "cpu":
+                on = "CPU (int8)"
+            else:
+                on = dev.upper()
+            return f"● Listening — {model} on {on} (pid {st.get('pid')})"
+        return f"● Stopped — {model} (device: {dev})"
 
     def _update_status(self) -> None:
         # model download progress (background thread)
@@ -573,21 +743,15 @@ class SettingsWindow(QMainWindow):
         except Exception:
             self.status_label.setText("status: (unavailable)")
             return
-        if st.get("running"):
-            self.status_label.setText(
-                f"● Listening — {st.get('model')} on {st.get('device')} "
-                f"(pid {st.get('pid')})")
-            self.session_btn.setText("Stop")
-        else:
-            self.status_label.setText(f"● Stopped — {st.get('model')}")
-            self.session_btn.setText("Start")
+        self.status_label.setText(self._status_line(st))
+        self.session_btn.setText("Stop" if st.get("running") else "Start")
 
     def _session_clicked(self) -> None:
         try:
             p = self._tays("toggle")
             detail = (p.stdout or p.stderr).strip().splitlines()
             if detail:
-                self.status_label.setText(detail[-1])
+                self.statusBar().showMessage(detail[-1])
         except Exception as e:
             QMessageBox.warning(self, "Session", f"toggle failed: {e!r}")
         self._update_status()
@@ -596,6 +760,6 @@ class SettingsWindow(QMainWindow):
 def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     win = SettingsWindow()
-    win.resize(640, 720)
+    win.resize(700, 760)
     win.show()
     return app.exec()

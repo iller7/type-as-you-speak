@@ -311,6 +311,10 @@ def _remove_pid() -> None:
         _pidfile().unlink()
     except OSError:
         pass
+    try:
+        (_state_dir() / "live.json").unlink()
+    except OSError:
+        pass
 
 
 def _log_model_line() -> str:
@@ -335,12 +339,46 @@ def _log_tail(n: int = 6) -> list[str]:
 
 
 # ---- commands -----------------------------------------------------------------
+def _gpu_name() -> str | None:
+    """Human-readable GPU name, if a driver exposes one (NVIDIA first, then
+    AMD via lspci) — for the descriptive status line."""
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=5).stdout.strip().splitlines()
+        if out and out[0].strip():
+            return out[0].strip()
+    except Exception:
+        pass
+    try:
+        out = subprocess.run(["lspci"], capture_output=True, text=True, timeout=5).stdout
+        for line in out.splitlines():
+            if re.search(r"VGA|3D controller|Display controller", line) \
+                    and re.search(r"AMD|ATI", line):
+                return line.split(":", 2)[-1].strip()
+    except Exception:
+        pass
+    return None
+
+
+def _read_live_state(pid: int | None) -> dict | None:
+    """What the running session actually loaded (model/device) — engine.py
+    writes it; only trusted when its pid matches the live one."""
+    try:
+        st = json.loads((_state_dir() / "live.json").read_text())
+        if st.get("pid") == pid:
+            return st
+    except (OSError, ValueError):
+        pass
+    return None
+
+
 def _status_dict() -> dict:
     """Machine-readable session state — the contract GUIs and desktop
     applets consume (via `tays status --json`)."""
     running, pid = _is_running()
     cfg = _config.load_config()
-    return {
+    st = {
         "app": "type-as-you-speak",
         "version": __version__,
         "running": running,
@@ -349,6 +387,18 @@ def _status_dict() -> dict:
         "model": cfg["model_name"],
         "device": cfg["device"],
     }
+    if running:
+        live = _read_live_state(pid)
+        if live:
+            if live.get("model"):
+                st["model"] = live["model"]
+            if live.get("device"):
+                st["device"] = live["device"]
+            if st["device"] in ("cuda", "rocm"):
+                gpu = _gpu_name()
+                if gpu:
+                    st["gpu"] = gpu
+    return st
 
 
 def cmd_start(_args) -> int:
