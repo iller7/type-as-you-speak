@@ -20,6 +20,7 @@ Test hook: set DICTATE_WAV=/path/to.wav to read that file instead of the mic
 (same chunk loop, same VAD/flush/stop logic).
 """
 import ctypes
+import numpy as np
 import os
 import re
 import signal
@@ -182,6 +183,64 @@ def trim_fast_tail(words, min_span_s=0.10):
     while i > 0 and (words[i - 1].end - words[i - 1].start) < min_span_s:
         i -= 1
     return words[:i]
+
+
+def span_has_speech(vad, audio, start_s, end_s, min_prob=0.5):
+    """VAD probability over one word's span of `audio` (word timestamps are
+    relative to `audio`). Whisper can stamp a hallucinated word with plausible
+    speed ("ships." on 0.18 s); if there is no speech energy in its span, it
+    was invented over silence. A span too short to judge is kept."""
+    s = max(0, int(start_s * SR))
+    e = min(len(audio), int(end_s * SR))
+    span = np.ascontiguousarray(audio[s:e], dtype=np.float32)
+    if span.size < 512:          # too short to judge — keep the word
+        return True
+    rem = span.size % 512
+    if rem:
+        span = np.concatenate([span, np.zeros(512 - rem, dtype=np.float32)])
+    return float(np.mean(vad(span))) >= min_prob
+
+
+def guard_trailing(words, audio, vad):
+    """Drop a trailing hallucination run from a decoded word list (timestamps
+    relative to `audio`), shared by the main commit path and the tail
+    recovery path:
+    1) trim_fast_tail — stamped faster than speech can go;
+    2) up to two words whose audio span has no VAD speech energy
+       (invented over silence, e.g. "Hi." after a long pause).
+    Returns the surviving words — possibly empty for a hallucination-only
+    decode (the caller decides what to do with an empty result)."""
+    words = trim_fast_tail(words)
+    if len(words) > 1:
+        dropped = 0
+        while dropped < 2:
+            w = words[-1]
+            if span_has_speech(vad, audio, w.start, w.end):
+                break
+            words = words[:-1]
+            dropped += 1
+    return words
+
+
+def speech_fraction(vad, audio):
+    """Fraction of `audio` the VAD scores as speech (block prob >= 0.5).
+    More robust than a mean when a region mixes real speech with silence:
+    a silent tail scores ~0, a tail containing any real speech scores well
+    above the recovery gate."""
+    arr = np.ascontiguousarray(audio, dtype=np.float32)
+    if arr.size < 512:
+        return 0.0
+    rem = arr.size % 512
+    if rem:
+        arr = np.concatenate([arr, np.zeros(512 - rem, dtype=np.float32)])
+    probs = np.asarray(vad(arr), dtype=np.float64)
+    return float(np.count_nonzero(probs >= 0.5) / probs.size)
+
+
+# A tail is only worth re-decoding if at least this much of it is speech —
+# re-decoding a silent tail is exactly how whisper hallucinates a closing
+# word over the pause ("Hi." after "So be it." — observed in the log).
+TAIL_SPEECH_FRACTION = 0.10
 
 _stop = {"flag": False}
 
@@ -473,8 +532,6 @@ def run_session(reader, t0):
     type_text, type_space = make_type()
     _log(f"ready in {time.time() - t0:.2f}s — speak now")
 
-    import numpy as np
-
     # ---- streaming state ----------------------------------------------------
     # pending: audio heard but not yet committed; re-transcribed each round.
     # committed: everything typed so far; seeds the next transcription as
@@ -530,20 +587,6 @@ def run_session(reader, t0):
             arr = np.concatenate([arr, np.zeros(512 - rem, dtype=np.float32)])
         probs = vad(arr)
         return float(np.mean(probs))
-
-    def span_has_speech(audio, start_s, end_s, min_prob=0.5):
-        """VAD probability over one word's audio span. Whisper can stamp a
-        hallucinated closing word with plausible speed ("ships." on 0.18 s);
-        if there is no speech energy in its span, it was invented over silence."""
-        s = max(0, int(start_s * SR))
-        e = min(len(audio), int(end_s * SR))
-        span = np.ascontiguousarray(audio[s:e], dtype=np.float32)
-        if span.size < 512:          # too short to judge — keep the word
-            return True
-        rem = span.size % 512
-        if rem:
-            span = np.concatenate([span, np.zeros(512 - rem, dtype=np.float32)])
-        return float(np.mean(vad(span))) >= min_prob
 
     def strip_echo(prompt_text, text):
         """Drop leading words of `text` that merely repeat the prompt tail.
@@ -643,21 +686,11 @@ def run_session(reader, t0):
                 stable_words = words      # final commit: take everything
             else:
                 return                    # nothing finalised yet — re-try next round
-        # Drop a trailing hallucination stamped faster than speech can go
-        # (e.g. "All right." on 0.14 s / "you" on 0.08 s — see trim_fast_tail).
-        stable_words = trim_fast_tail(stable_words)
-        # Drop a trailing hallucination with plausible speed but no speech
-        # energy behind it (e.g. "ships." on 0.18 s over silence — VAD check).
-        # Never drops below one word; max two, so a real quiet final word
-        # followed by one stray token is the worst case touched.
-        if len(stable_words) > 1:
-            dropped = 0
-            while dropped < 2:
-                w = stable_words[-1]
-                if span_has_speech(segment, w.start, w.end):
-                    break
-                stable_words = stable_words[:-1]
-                dropped += 1
+        # Drop trailing hallucinations: stamped faster than speech can go
+        # ("All right." on 0.14 s) or with no speech energy in their span
+        # ("ships." on 0.18 s over silence). Same guard the tail recovery
+        # path below uses.
+        stable_words = guard_trailing(stable_words, segment, vad)
         if not stable_words:
             return                        # hallucination-only round — re-try next
         parts = []
@@ -683,25 +716,34 @@ def run_session(reader, t0):
         # --- tail recovery (final commits only) ------------------------------
         # GPU decodes can silently stop before the audio does (observed with
         # medium.en under VRAM pressure — words vanish, or the whole segment
-        # comes back empty). If the VAD still shows speech past where the
-        # model stopped, re-transcribe that tail primed with what we already
-        # have: whisper continues exactly where the prompt leaves off.
+        # comes back empty). Re-transcribe the untranscribed tail primed with
+        # what we already have — but ONLY if the VAD shows speech in it:
+        # re-decoding a silent tail is exactly how whisper hallucinates a
+        # closing word over your pause ("Hi." after "So be it." — observed
+        # in the log). A silent tail is VAD-certified, so it is consumed.
         if commit_lag == 0.0 and dur - covered > 0.7:
             tail = segment[max(0, int(covered * SR)):]
-            base = norm(committed + " " + stable_text)
-            tail_prompt = " ".join(base.split()[-PROMPT_TAIL_WORDS:])
-            _log(f"tail recovery: {dur - covered:.2f}s untranscribed")
-            try:
-                segs2 = list(transcribe(tail, tail_prompt)[0])
-            except Exception as e:
-                segs2 = []
-                _log(f"tail transcribe error: {e!r}")
-            t2 = norm(strip_echo(tail_prompt,
-                                " ".join(s.text.strip() for s in segs2)))
-            if t2:
-                stable_text = norm((stable_text + " " + t2).strip())
+            if speech_fraction(vad, tail) >= TAIL_SPEECH_FRACTION:
+                base = norm(committed + " " + stable_text)
+                tail_prompt = " ".join(base.split()[-PROMPT_TAIL_WORDS:])
+                _log(f"tail recovery: {dur - covered:.2f}s untranscribed")
+                try:
+                    segs2 = list(transcribe(tail, tail_prompt)[0])
+                except Exception as e:
+                    segs2 = []
+                    _log(f"tail transcribe error: {e!r}")
+                tw = guard_trailing([w for s in segs2 for w in (s.words or [])],
+                                   tail, vad)
+                t2 = norm(strip_echo(tail_prompt,
+                                     " ".join(w.word.strip() for w in tw)))
+                if t2:
+                    stable_text = norm((stable_text + " " + t2).strip())
+                    covered = dur
+                    _log(f"tail recovered: {t2[:60]!r}")
+            else:
+                skipped = dur - covered
                 covered = dur
-                _log(f"tail recovered: {t2[:60]!r}")
+                _log(f"tail silent ({skipped:.2f}s, VAD) — not re-decoded")
 
         # Strip Whisper end-of-speech hallucinations before typing (a stock
         # closing line and/or a trailing "X X" repeat). If the region turned
