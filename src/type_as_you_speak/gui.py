@@ -106,8 +106,22 @@ def _hf_hub_dir() -> Path:
     return Path(home) / "hub"
 
 
+def _model_repo(name: str) -> str:
+    """Hugging Face repo a model name resolves to — from faster-whisper's
+    own mapping, so names like large-v3-turbo (mobiuslabsgmbh/…) are handled
+    correctly. A full 'owner/repo' entered by the user passes through."""
+    try:
+        from faster_whisper.utils import _MODELS
+        if name in _MODELS:
+            return _MODELS[name]
+    except Exception:
+        pass
+    return name if "/" in name else f"Systran/faster-whisper-{name}"
+
+
 def _model_available(name: str) -> bool:
-    d = _hf_hub_dir() / f"models--Systran--faster-whisper-{name}"
+    owner, _, repo = _model_repo(name).partition("/")
+    d = _hf_hub_dir() / f"models--{owner}--{repo}"
     return (d / "snapshots").is_dir()
 
 
@@ -281,9 +295,11 @@ class SettingsWindow(QMainWindow):
     def _download_worker(self, name: str) -> None:
         """Fetch the model into the Hugging Face cache (and validate it by
         loading on CPU). Runs in a background thread; the status timer polls
-        _dl_line / _dl_result."""
+        _dl_line / _dl_result. Full output is also appended to
+        model-download.log (state dir) so failures leave evidence."""
         code = ("from faster_whisper import WhisperModel; "
                 f"WhisperModel({name!r}, device='cpu', compute_type='int8')")
+        lines: list[str] = []
         try:
             p = subprocess.Popen([sys.executable, "-c", code],
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -292,14 +308,30 @@ class SettingsWindow(QMainWindow):
             for line in p.stdout:
                 if line.strip():
                     self._dl_line = line.strip()
+                    lines.append(line.rstrip())
             p.wait(timeout=3600)
+            self._log_download(name, p.returncode, lines)
             tail = [l for l in (self._dl_line or "").splitlines() if l.strip()]
             if p.returncode == 0:
                 self._dl_result = (True, "done")
             else:
                 self._dl_result = (False, (tail[-1] if tail else "download failed"))
         except Exception as e:
+            self._log_download(name, -1, lines + [repr(e)])
             self._dl_result = (False, repr(e))
+
+    def _log_download(self, name: str, exit_code: int, lines: list[str]) -> None:
+        import datetime
+        try:
+            d = cli._state_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            with open(d / "model-download.log", "a", encoding="utf-8") as f:
+                f.write(f"\n=== {datetime.datetime.now().isoformat(timespec='seconds')}"
+                        f" model={name!r} exit={exit_code} ===\n")
+                for l in lines[-50:]:
+                    f.write(l + "\n")
+        except Exception:
+            pass
 
     def _model_group(self) -> QGroupBox:
         g = QGroupBox("Model & device")
@@ -523,7 +555,13 @@ class SettingsWindow(QMainWindow):
                     self.model_label.setText(self._dl_line)
                 self._update_download_btn()
             else:
-                ok, msg = self._dl_result or (False, "unknown error")
+                # Consume exactly ONCE — leaving _dl_thread set would make the
+                # next tick re-run this branch with _dl_result already cleared
+                # and overwrite the real message with "unknown error".
+                self._dl_thread = None
+                ok, msg = self._dl_result or (
+                    False, "unknown error — see model-download.log in "
+                          "~/.local/state/type-as-you-speak/")
                 self._dl_result = None
                 self.model_label.setText(
                     f"Downloaded {self._dl_name} ✓ — ready to use"
