@@ -5,7 +5,7 @@
 # and it works offline after the first model download (~484 MB, small.en).
 
 pkgname=type-as-you-speak
-pkgver=0.5.0
+pkgver=0.5.1
 pkgrel=1
 pkgdesc="Mac-like, type-as-you-speak dictation for Linux (Wayland & X11) — 100% local"
 arch=(x86_64)
@@ -26,9 +26,9 @@ depends=(
 makedepends=(python-pip)
 
 source=("$pkgname-$pkgver.tar.gz::https://github.com/iller7/type-as-you-speak/archive/refs/tags/v$pkgver.tar.gz")
-# Hash of the v0.5.0 tarball (recompute after any pkgver bump:
+# Hash of the v0.5.1 tarball (recompute after any pkgver bump:
 #   curl -sL https://github.com/iller7/type-as-you-speak/archive/refs/tags/v<ver>.tar.gz | sha256sum)
-sha256sums=('6b20ef17cace6ce399f7768f858b2adc16aa7e2363e8736cb6ca96ef1575c1e8')
+sha256sums=('7e845794cae2a0208d10b84a1cebc669aadc82aa8ed86e2448f74713d2c24e95')
 
 build() {
   cd "$pkgname-$pkgver"
