@@ -89,6 +89,20 @@ NO_REPEAT_NGRAM_SIZE = int(CFG["no_repeat_ngram_size"])
 CONDITION_ON_PREVIOUS_TEXT = bool(CFG["condition_on_previous_text"])
 HOTWORDS = load_hotwords(str(CFG["hotwords"]).strip(),
                          str(CFG.get("hotwords_file", "")).strip())
+HOTWORD_ENTRIES = [e.strip() for e in HOTWORDS.split(",") if e.strip()]
+
+
+def hotword_leak(text, min_distinct=3):
+    """True if `text` contains at least `min_distinct` distinct hotwords —
+    the signature of whisper re-emitting the hotword *prompt* as
+    "transcription" (observed in the log: 'for the Linux, glue, productised,
+    per-disk, for all the' stamped over 0.06 s of silence). Real dictation
+    naming three-plus of your own hotwords in one breath is vanishingly
+    unlikely, so a segment like that is dropped as a whole."""
+    if len(HOTWORD_ENTRIES) < min_distinct:
+        return False
+    t = text.casefold()
+    return sum(1 for h in HOTWORD_ENTRIES if h.casefold() in t) >= min_distinct
 
 SR = 16000                                       # Whisper requires 16 kHz mono
 CHUNK_SAMPLES = SR * CHUNK_S
@@ -694,6 +708,16 @@ def run_session(reader, t0):
             _log(f"transcribe error: {e!r}")
             last_round_at = now
             return
+        # Hotword prompt leak: whisper can re-emit the hotword prompt itself
+        # as "transcription" (observed: 'for the Linux, glue, productised,
+        # per-disk, for all the' over 0.06 s of silence). A segment naming
+        # 3+ distinct hotwords is a leak — drop just that segment; the real
+        # words around it survive.
+        leaked = [s for s in segs if hotword_leak(s.text)]
+        if leaked:
+            for s in leaked:
+                _log(f"hotword leak dropped: {s.text.strip()[:60]!r}")
+            segs = [s for s in segs if not hotword_leak(s.text)]
         last_round_at = now
         for s in segs:
             _log(f"  seg [{s.start:5.2f} -> {s.end:5.2f}] {s.text.strip()[:60]!r}")
