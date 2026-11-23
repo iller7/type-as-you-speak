@@ -54,6 +54,8 @@ MAX_PENDING_S = float(CFG["max_pending_s"])
 PROMPT_TAIL_WORDS = int(CFG["prompt_tail_words"])
 MAX_SESSION_S = float(CFG["max_session_s"])     # safety cap only (10 min)
 PREBUF_CAP_S = float(CFG["prebuf_cap_s"])
+NO_REPEAT_NGRAM_SIZE = int(CFG["no_repeat_ngram_size"])
+CONDITION_ON_PREVIOUS_TEXT = bool(CFG["condition_on_previous_text"])
 
 SR = 16000                                       # Whisper requires 16 kHz mono
 CHUNK_SAMPLES = SR * CHUNK_S
@@ -79,6 +81,11 @@ def _wordkey(x):
 def clean_hallucinations(text):
     """Strip Whisper hallucinations before typing:
 
+    (0) repetition loops — under GPU contention the decode can lock onto a
+        single token and emit it over and over ("Cl- Cl- Cl- Cl-", "you you
+        you"). A run of the same word 2+ times (anywhere in the text) is
+        dropped entirely: real dictation speech almost never says one word
+        back-to-back twice.
     (1) stock "closing" phrases — Whisper inserts these *anywhere* it wants (it
         splices them mid-stream, not only at the end), so every contiguous
         occurrence is removed. Longest-first, so "i'll see you in the next
@@ -92,6 +99,22 @@ def clean_hallucinations(text):
     words = norm(text).split()
     if not words:
         return ""
+
+    # (0) drop repetition-loop runs: "cl cl cl" -> "", "option a still cl cl"
+    #     -> "option a still". Whole run (incl. first copy) is dropped.
+    kept, prev = [], None
+    for w in words:
+        k = _wordkey(w)
+        if not k:                       # punctuation-only token: keep, no loop
+            kept.append(w)
+            continue
+        if k == prev:
+            if kept and _wordkey(kept[-1]) == k:
+                del kept[-1]
+            continue
+        kept.append(w)
+        prev = k
+    words = kept
 
     # (1) remove stock hallucination phrases wherever they occur.
     tails = [[_wordkey(w) for w in p.split()] for p in WHISPER_HALLUCINATION_TAILS]
@@ -119,7 +142,24 @@ def clean_hallucinations(text):
             if keys[-k:] == keys[-2 * k:-k]:
                 words = words[:-k]
                 break
+    if not any(_wordkey(w) for w in words):
+        return ""      # nothing but punctuation survived the stripping
     return " ".join(words)
+
+
+def has_repetition_loop(words):
+    """True if the same word occurs back-to-back anywhere — the signature of a
+    degenerate beam-search decode (observed when the GPU is contended:
+    "Cl- Cl- Cl-", "you you you"). Used to engage the CPU fallback."""
+    prev = None
+    for w in words:
+        k = _wordkey(w)
+        if not k:
+            continue
+        if k == prev:
+            return True
+        prev = k
+    return False
 
 _stop = {"flag": False}
 
@@ -426,21 +466,37 @@ def run_session(reader, t0):
     typed_any = False
     _cpu_fallback = [None]
 
+    def engage_cpu_fallback(reason):
+        """Build the CPU fallback model once; every round after this uses it.
+        Triggers: a GPU transcribe exception (OOM), or the GPU decode produced
+        a repetition loop (it degenerates under VRAM/compute contention — e.g.
+        Ollama serving on the same GPU). small.en int8: good quality, and the
+        CPU isn't the scarce resource here."""
+        if _cpu_fallback[0] is None:
+            from faster_whisper import WhisperModel
+            _cpu_fallback[0] = WhisperModel("small.en", device="cpu",
+                                            compute_type="int8")
+            _log(f"{reason} — cpu small.en for the rest of this session")
+
     def transcribe(audio, prompt):
-        """GPU model first; if it OOMs mid-session, fall back to a CPU model
-        built on demand. Word timestamps let us commit at word granularity
-        (only words older than the commit lag are finalised)."""
-        kwargs = dict(language=LANG, vad_filter=False, word_timestamps=True)
+        """GPU model first; if it OOMs mid-session (or was engaged as the
+        fallback after unstable decodes), use the CPU model instead. Word
+        timestamps let us commit at word granularity (only words older than
+        the commit lag are finalised). no_repeat_ngram_size +
+        condition_on_previous_text keep the decode from looping/re-emitting
+        under GPU contention (config `no_repeat_ngram_size`,
+        `condition_on_previous_text`)."""
+        kwargs = dict(language=LANG, vad_filter=False, word_timestamps=True,
+                      no_repeat_ngram_size=NO_REPEAT_NGRAM_SIZE,
+                      condition_on_previous_text=CONDITION_ON_PREVIOUS_TEXT)
         if prompt:
             kwargs["initial_prompt"] = prompt
+        if _cpu_fallback[0] is not None:
+            return _cpu_fallback[0].transcribe(audio, **kwargs)
         try:
             return model.transcribe(audio, **kwargs)
         except Exception:
-            if _cpu_fallback[0] is None:
-                from faster_whisper import WhisperModel
-                _cpu_fallback[0] = WhisperModel("base.en", device="cpu",
-                                                 compute_type="int8")
-                _log("mid-session fallback to cpu base.en")
+            engage_cpu_fallback("GPU transcribe failed")
             return _cpu_fallback[0].transcribe(audio, **kwargs)
 
     def speech_prob(chunk):
@@ -558,6 +614,12 @@ def run_session(reader, t0):
                 parts[-1] += p          # "open" + "-source" -> "open-source"
             else:
                 parts.append(p)
+        # Degenerate-decode tripwire: the GPU is looping the same word (this
+        # happens under VRAM/compute contention). The loop itself is stripped
+        # by clean_hallucinations below; this switches the *session* to the CPU
+        # model so the next rounds decode cleanly.
+        if has_repetition_loop(parts):
+            engage_cpu_fallback("GPU decode produced a repetition loop")
         stable_text = norm(" ".join(parts))
         covered = stable_words[-1].end
         if prompt:
