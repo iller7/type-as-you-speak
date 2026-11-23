@@ -4,6 +4,42 @@ All notable changes to **type-as-you-speak** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **`hotwords` + `hotwords_file` config keys:** bias the decoder toward
+  words Whisper otherwise mishears (proper nouns, names, jargon).
+  `hotwords` is an inline comma-separated list; `hotwords_file` points at a
+  plain text file (one entry per line, `#` comments allowed) — a shareable
+  list for a team or topic. Both combine, deduped case-insensitively.
+  A starter list ships at `config/hotwords.example.txt` and `tays setup`
+  drops a copy next to your config. (`DICTATE_HOTWORDS` /
+  `DICTATE_HOTWORDS_FILE` overrides.)
+- **CPU fallback model `small.en`:** when the GPU decode is unstable, the
+  session continues on CPU `small.en` int8 (was `base.en`).
+
+### Fixed
+- **Degenerate decodes under GPU contention** (observed with Ollama serving
+  on the same GPU): repetition loops (`Cl- Cl- Cl-`), re-emitted phrases
+  (the same sentence typed 3–4×), and mishears. Suppressed at the decode
+  level (`no_repeat_ngram_size=2`, `condition_on_previous_text=false` —
+  both configurable, `0`/`true` restores old behaviour) and at the commit
+  level (runs of the same word 2+ are stripped).
+- **Stray trailing hallucinations over silence** (`All right.` on 0.14 s,
+  `you` on 0.08 s, `ships.` on 0.18 s, `Hi.` after a long pause): a trailing
+  run stamped faster than ~0.1 s per word is dropped, and a trailing word
+  whose audio span has no VAD speech energy is dropped (max two, real words
+  untouched).
+- **Tail recovery re-decoding your silence:** the leftover-audio recovery
+  path now checks the VAD first (its own comment always claimed it did) —
+  a silent tail is consumed instead of being re-decoded into a hallucinated
+  closing word. Recovered words pass the same trailing guard as the main
+  path, and genuine recoveries (real speech the model stopped before) still
+  work.
+- **False CPU-fallback trigger:** the repetition-loop tripwire now requires
+  3+ back-to-back (a Whisper segmentation stutter on a legit word like
+  `end end` no longer locks the session to CPU).
+
 ## [0.5.1] - 2026-11-23
 
 ### Changed
