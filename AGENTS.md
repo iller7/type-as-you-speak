@@ -8,6 +8,7 @@ Read `TODO.md` before substantial work. It is a concise roadmap to GitHub Issues
 - The maintainer develops on Kubuntu with a local LLM. Keep instructions usable through ordinary files and CLI tools. Do not require a cloud LLM provider, API key, paid assistant or proprietary agent harness. GitHub CI and initial dependency/model downloads are separate from local inference.
 - Python is the current implementation, not a permanent decision. Keep the Python/Rust/hybrid and desktop-shell decisions in GitHub Issues open until measured evidence and the maintainer's preference settle them.
 - Use the main checkout and short-lived branches. Never create, enter or use Git worktrees. Preserve unrelated changes.
+- Never publish internal project strategy, monetisation discussions or agent planning documents. Keep `docs/project-direction.md` private and ignored if retained locally.
 - Keep temporary agent plans, specifications, transcripts and execution logs outside the repository. Keep TODO.md as a short, stable roadmap linking to issue queries; do not duplicate live issue status.
 
 ## Backlog upkeep
@@ -31,7 +32,7 @@ Read `TODO.md` before substantial work. It is a concise roadmap to GitHub Issues
 
 - Write each Markdown paragraph and list item on one source line. Let the editor/viewer wrap visually; do not hard-wrap prose at 72, 79, 80 or 100 columns. Preserve deliberate line breaks in code, tables, HTML and other structured content.
 - Prettier uses `proseWrap: never`; EditorConfig disables a Markdown line-width target. Shared VS Code settings enable visual Markdown wrapping. Keep documentation concise and link to the authoritative guide instead of duplicating it.
-- Use two-space indentation by default. Python keeps the PEP 8 four-space convention; Makefiles keep tabs. Use Ruff for Python formatting, not a Markdown formatter.
+- Use two-space indentation by default. Python keeps the PEP 8 four-space convention; Makefiles keep tabs. Use Ruff for Python code formatting with its explicit 88-character target. Keep flowing Python comments/docstrings naturally wrapped in the viewer, preserving structured examples and lists. Do not impose a separate 72-character prose limit.
 
 ## Verification and privacy
 
@@ -49,4 +50,4 @@ Read `TODO.md` before substantial work. It is a concise roadmap to GitHub Issues
 
 ## Licensing
 
-The public core is AGPL-3.0-only. COMMERCIAL.md describes enquiries for separate written terms, not a blanket licence or an existing contract. Preserve required third-party notices. Do not add a proprietary exception, claim contributor relicensing rights or include external code in a commercial edition without documented permission. Issue #10 retains the component/model/contributor-rights audit.
+The public core is AGPL-3.0-only. COMMERCIAL.md describes enquiries for separate written terms, not a blanket licence or an existing contract. Preserve required third-party notices and do not claim that removing an old download revokes permissions previously granted. Do not add a proprietary exception, claim contributor relicensing rights or include external code in a commercial edition without documented permission. Issue #10 retains the component/model/contributor-rights audit.

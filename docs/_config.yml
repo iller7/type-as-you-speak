@@ -1,5 +1,5 @@
 title: type-as-you-speak
-description: Local dictation for Linux, with focused installation and user guides.
+description: Real-time dictation with privacy built in. Linux desktop today; macOS, Windows and optional cloud planned.
 url: https://iller7.github.io
 baseurl: /type-as-you-speak
 markdown: kramdown
@@ -13,3 +13,6 @@ defaults:
       path: ""
     values:
       layout: default
+
+exclude:
+  - project-direction.md

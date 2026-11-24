@@ -1,4 +1,4 @@
-include LICENSE NOTICE COMMERCIAL.md README.md CHANGELOG.md RELEASES.md CONTRIBUTING.md SECURITY.md TODO.md AGENTS.md pyproject.toml uv.lock
+include LICENSE NOTICE COMMERCIAL.md README.md CHANGELOG.md RELEASES.md CONTRIBUTING.md CODE_OF_CONDUCT.md SUPPORT.md SECURITY.md TODO.md AGENTS.md pyproject.toml uv.lock
 include install.sh Makefile mise.toml .python-version .dockerignore .editorconfig .prettierrc.json .prettierignore
 recursive-include src *.py
 recursive-include data *.desktop *.xml *.svg *.png
@@ -6,12 +6,14 @@ recursive-include config *.toml *.txt
 recursive-include applet *.json *.qml *.svg
 recursive-include bin *.sh
 recursive-include scripts *.py *.sh
-recursive-include packaging *.sh *.spec *.json *.md *.Dockerfile control PKGBUILD
+recursive-include packaging *.sh *.spec *.json *.md *.Dockerfile control PKGBUILD.in
 recursive-include tests *.py
 recursive-include tests/fixtures *.wav *.json *.md *.txt
-recursive-include docs *.md *.yml *.html
+recursive-include docs *.md *.yml *.html *.css *.svg *.png
 recursive-include .agents/guides *.md
 prune .github
 prune dist
 prune build
 global-exclude __pycache__ *.py[cod] .DS_Store
+
+exclude docs/project-direction.md

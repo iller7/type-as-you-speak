@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <rect width="1280" height="640" fill="#102b2b"/>
+  <circle cx="1170" cy="100" r="280" fill="none" stroke="#315a50" stroke-width="2"/>
+  <circle cx="1170" cy="100" r="350" fill="none" stroke="#24463e" stroke-width="2"/>
+  <rect x="70" y="60" width="62" height="62" rx="18" fill="#83e7bb"/>
+  <g font-family="sans-serif">
+    <text x="86" y="104" font-size="43" font-weight="700" fill="#102b2b">t.</text>
+    <text x="153" y="103" font-size="30" font-weight="700" fill="#eaf6f1">type-as-you-speak</text>
+    <text x="70" y="230" font-size="25" letter-spacing="3" fill="#83e7bb">REAL-TIME DICTATION</text>
+    <text x="65" y="326" font-size="76" font-weight="700" fill="#f3faf7">Speak freely.</text>
+    <text x="65" y="414" font-size="76" font-weight="700" fill="#f3faf7">Keep control.</text>
+    <text x="72" y="481" font-size="27" fill="#cbdeda">Privacy built in. Strict offline by default.</text>
+    <text x="72" y="574" font-size="22" fill="#a6c6ba">Linux today · macOS &amp; Windows planned · Cloud planned</text>
+  </g>
+  <g stroke="#83e7bb" stroke-width="18" stroke-linecap="round">
+    <path d="M1030 290v70 M1064 250v150 M1098 220v210 M1132 265v120 M1166 295v60"/>
+  </g>
+</svg>

@@ -1,4 +1,4 @@
-# Maintainer: Faizal Sahebdin <iller7@gmail.com>
+# Maintainer: Faizal Sahebdin <faizal.sahebdin@gmail.com>
 #
 # type-as-you-speak — Mac-like, real-time dictation for Linux (Wayland & X11).
 # 100% local: faster-whisper runs on your machine, your audio never leaves it,
@@ -28,13 +28,13 @@ depends=(
   ffmpeg         # mic capture (pulse input)
   libpulse
   libnotify
+  libseccomp
 )
 makedepends=(python-build python-installer python-setuptools python-wheel)
 
-source=("$pkgname-$pkgver.tar.gz::https://github.com/iller7/type-as-you-speak/archive/refs/tags/v$pkgver.tar.gz")
-# Hash of the v0.5.1 tarball (recompute after any pkgver bump:
-#   curl -sL https://github.com/iller7/type-as-you-speak/archive/refs/tags/v<ver>.tar.gz | sha256sum)
-sha256sums=('7e845794cae2a0208d10b84a1cebc669aadc82aa8ed86e2448f74713d2c24e95')
+# Render with the checked source archive and its SHA-256 before running makepkg.
+source=("$pkgname-$pkgver.tar.gz")
+sha256sums=('@SOURCE_SHA256@')
 
 build() {
   cd "$pkgname-$pkgver"
@@ -66,5 +66,5 @@ EOF
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png"
   done
   install -dm755 "$pkgdir/usr/share/doc/$pkgname"
-  install -m644 README.md LICENSE "$pkgdir/usr/share/doc/$pkgname/"
+  install -m644 README.md LICENSE NOTICE COMMERCIAL.md "$pkgdir/usr/share/doc/$pkgname/"
 }

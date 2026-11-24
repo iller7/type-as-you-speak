@@ -1,35 +1,38 @@
 ---
-title: Local dictation for Linux
+title: Real-time dictation with privacy built in
+body_class: home
 ---
 
-# Speak. See your words appear.
+<div class="hero">
+  <p class="eyebrow">Real-time dictation · privacy first</p>
+  <h1>Speak freely.<br>Keep control.</h1>
+  <p class="lead">Turn your voice into text in the app you are using. Dictation that fits your desktop, with strict offline processing enabled by default.</p>
+  <div class="actions"><a class="button" href="{{ '/install.html' | relative_url }}">Get started →</a><a class="button secondary" href="{{ '/privacy.html' | relative_url }}">Explore privacy controls</a></div>
+  <div class="chips"><span>Linux desktop today</span><span>macOS &amp; Windows planned</span><span>Optional cloud planned</span></div>
+</div>
 
-**Local dictation for your Linux desktop.** Press a shortcut, speak, and type into the focused window as speech is recognised. type-as-you-speak combines faster-whisper recognition with Linux input integration.
+<div class="notice">Install from the current source checkout. No supported binary release is published yet. <a href="{{ '/install.html' | relative_url }}">Check installation guidance.</a></div>
 
-[Get started](install.md) · [Download a release](https://github.com/iller7/type-as-you-speak/releases) · [Read the user guide](usage.md)
+## Less typing. More choice.
 
-## Your speech stays on your machine
+<p class="section-intro">Use focused text fields across your desktop, subject to application compatibility and input permissions. No cloud dictation account is required for the implemented local engine.</p>
 
-Recognition runs locally after the initial model download. No cloud LLM provider or account is required. Read [privacy and network access](privacy.md) for telemetry controls and verification limits. Review the [configuration guide](configuration.md) for CPU/GPU choices and the [security guide](https://github.com/iller7/type-as-you-speak/blob/master/SECURITY.md) for input-device permissions. This site adds no analytics or tracking pixels.
+<div class="cards">
+  <article class="card"><span class="number">01 / DICTATE</span><h3>Stay in your flow</h3><p>Use a shortcut, speak, and type into the focused app. KDE/GNOME and Wayland/X11 are the integration targets.</p><a href="{{ '/usage.html' | relative_url }}">Using dictation →</a></article>
+  <article class="card"><span class="number">02 / CONTROL</span><h3>Private by default</h3><p>Download models explicitly, then keep dictation offline. Telemetry opt-outs remain enforced in every mode. Live microphone audio is processed in memory, not saved as a recording by default.</p><a href="{{ '/privacy.html' | relative_url }}">Read the privacy boundaries →</a></article>
+  <article class="card"><span class="number">03 / CONFIGURE</span><h3>Make it yours</h3><p>Choose your model, CPU/GPU settings, language and hotwords. Use the settings window or a readable configuration file.</p><a href="{{ '/configuration.html' | relative_url }}">Configure your setup →</a></article>
+</div>
 
-## Start here
+## Know what is ready
 
-| I want to…                                        | Guide                                                                                                                                                    |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install, upgrade or choose a distro package       | [Installation](install.md)                                                                                                                               |
-| Set shortcuts, dictate or use the settings window | [Usage](usage.md)                                                                                                                                        |
-| Select models, language or compute device         | [Configuration](configuration.md)                                                                                                                        |
-| Diagnose microphone, input or startup failures    | [Troubleshooting](troubleshooting.md)                                                                                                                    |
-| Check automated coverage and platform targets     | [Testing matrix](testing.md)                                                                                                                             |
-| Understand the engine                             | [Architecture](architecture.md)                                                                                                                          |
-| Contribute or see what is next                    | [Contributing](https://github.com/iller7/type-as-you-speak/blob/master/CONTRIBUTING.md) and [Issues](https://github.com/iller7/type-as-you-speak/issues) |
+<div class="platforms">
+  <div><span class="status">Current desktop target</span><h3>Linux</h3><p>Debian, Ubuntu and Fedora package checks; Arch build validation. Real microphone, input and GPU compatibility still needs desktop QA.</p></div>
+  <div><span class="status planned">Planned desktop ports</span><h3>macOS &amp; Windows</h3><p>Shared-code tests run on both systems. Desktop dictation, installers and OS privacy enforcement are not available yet.</p></div>
+  <div><span class="status planned">Planned option</span><h3>Cloud dictation</h3><p>No hosted service exists today. Future cloud features must respect strict offline mode and require separate, explicit opt-in.</p></div>
+</div>
 
-## Linux first, with honest support boundaries
+## Find your next step
 
-KDE Plasma/GNOME and Wayland/X11 are the integration targets. CI builds and checks Debian 12/13, Ubuntu 24.04/26.04 and Fedora 44/45 packages; Arch has a package-build check. Real microphone, focus, input and GPU QA remains [tracked separately](https://github.com/iller7/type-as-you-speak/issues/7). Select a release asset matching your distro and architecture; a CI build does not mean that asset has been published.
+[Installation](install.md) · [Troubleshooting](troubleshooting.md) · [Testing matrix](testing.md) · [Architecture](architecture.md) · [Issues and roadmap](https://github.com/iller7/type-as-you-speak/issues)
 
-Flatpak remains experimental. macOS and Windows currently have portable-code CI checks; desktop dictation ports and installers are not available. See the [distribution guide](https://github.com/iller7/type-as-you-speak/blob/master/packaging/README.md) for details.
-
-## Free, open development
-
-First-party source uses [AGPL-3.0-only](licensing.md), with a separate commercial-licensing enquiry path; dependencies, model weights and bundled input tools retain their own licences. Follow the [licensing review](https://github.com/iller7/type-as-you-speak/issues/10), [project direction](project-direction.md) and [automatically generated release changelog](https://github.com/iller7/type-as-you-speak/releases).
+First-party code is [AGPL-3.0-only](licensing.md), with a separate commercial-licensing enquiry path. Dependencies, model weights and input tools keep their own terms. The focused app receiving your text has its own privacy behaviour.

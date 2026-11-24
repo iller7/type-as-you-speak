@@ -1,6 +1,10 @@
+---
+title: "Privacy and network access"
+---
+
 # Privacy and network access
 
-These controls apply to the current source checkout. Existing v0.5.1 release binaries predate them; no updated release has been published yet.
+These controls apply to the current source checkout. No supported binary release is published yet.
 
 ## Strict offline dictation
 
@@ -18,14 +22,14 @@ The restriction covers the dictation process and its children. Existing desktop 
 
 The app enforces these before inference imports, including in setup/model-download children and the public test-model preparation tool:
 
-| Dependency | Control and reviewed scope |
-| --- | --- |
-| ONNX Runtime (locked 1.32; Fedora-native 1.26) | `ORT_DISABLE_TELEMETRY=1` before import, plus the API event opt-out before model/VAD construction. The early setting prevents 1DS initialization; the API additionally covers legacy Windows events. |
-| Hugging Face Hub 1.16.1 | `HF_HUB_DISABLE_TELEMETRY=1` and `DO_NOT_TRACK=1`; these suppress its telemetry helper without disabling explicit model downloads. |
-| Native hf-xet 1.8.0 downloader | The Hub opt-out also applies; `HF_XET_TELEMETRY_ENABLED=0` is set explicitly. |
-| HTTPX/httpcore/anyio and HTTP/TLS support | Used for explicit Hub transfers, not a separate analytics integration. Download requests still disclose connection metadata; disabling telemetry does not make downloads anonymous. |
-| faster-whisper, CTranslate2, tokenizers, NumPy and PyAV | Reviewed the used loading/inference paths and network delegation. No additional telemetry switch was identified. Strict-mode OS restrictions and the network regression check provide independent protection/evidence. |
-| PySide6 Essentials / Qt | The app does not integrate Qt Insight, a crash uploader or an analytics SDK. GUI model downloads have the same telemetry policy. User-requested documentation links open in your browser, which has its own privacy settings. |
+| Dependency                                              | Control and reviewed scope                                                                                                                                                                                                    |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ONNX Runtime (locked 1.32; Fedora-native 1.26)          | `ORT_DISABLE_TELEMETRY=1` before import, plus the API event opt-out before model/VAD construction. The early setting prevents 1DS initialization; the API additionally covers legacy Windows events.                          |
+| Hugging Face Hub 1.16.1                                 | `HF_HUB_DISABLE_TELEMETRY=1` and `DO_NOT_TRACK=1`; these suppress its telemetry helper without disabling explicit model downloads.                                                                                            |
+| Native hf-xet 1.8.0 downloader                          | The Hub opt-out also applies; `HF_XET_TELEMETRY_ENABLED=0` is set explicitly.                                                                                                                                                 |
+| HTTPX/httpcore/anyio and HTTP/TLS support               | Used for explicit Hub transfers, not a separate analytics integration. Download requests still disclose connection metadata; disabling telemetry does not make downloads anonymous.                                           |
+| faster-whisper, CTranslate2, tokenizers, NumPy and PyAV | Reviewed the used loading/inference paths and network delegation. No additional telemetry switch was identified. Strict-mode OS restrictions and the network regression check provide independent protection/evidence.        |
+| PySide6 Essentials / Qt                                 | The app does not integrate Qt Insight, a crash uploader or an analytics SDK. GUI model downloads have the same telemetry policy. User-requested documentation links open in your browser, which has its own privacy settings. |
 
 These opt-outs override inherited telemetry-enabling values and remain enforced when strict mode is off. CLI help/version do not load inference libraries. Importing the app into a process that already initialized dependencies cannot undo earlier activity; use the normal `tays` entry point in a fresh process. See [ONNX privacy documentation](https://github.com/microsoft/onnxruntime/blob/main/docs/Privacy.md), [Hub controls](https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisabletelemetry) and [Xet telemetry](https://huggingface.co/docs/hub/main/en/xet/telemetry).
 

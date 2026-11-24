@@ -23,3 +23,4 @@ gh api --method POST repos/iller7/type-as-you-speak/releases/generate-notes -f t
 
 Inspect the generated PR range and any compatibility warnings before authorising a release. Generated notes list merged PRs; they do not prove completion of real-desktop or GPU testing.
 
+First-party distributions use AGPL-3.0-only and include LICENSE, NOTICE and commercial-enquiry information. Review third-party/model terms and corresponding-source obligations separately. Publish a new version for the next release; the Arch template must be rendered from that verified source archive with its actual SHA-256 before publication.

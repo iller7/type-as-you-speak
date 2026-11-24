@@ -1,0 +1,30 @@
+name: Installation problem
+description: Report a package, setup or upgrade problem with sanitised diagnostics.
+labels: [bug, "area:packaging"]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include private speech, recordings, hotwords, credentials or unreviewed logs. macOS/Windows desktop ports are not released yet.
+  - type: input
+    id: platform
+    attributes:
+      label: OS/distro and version
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: App version and installation source
+      description: Release asset name, source commit or package-manager version.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Command, expected result and actual result
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitised error output

@@ -59,7 +59,13 @@ def main():
     target = args.output / "source"
     target.mkdir(parents=True)
     shutil.copytree(root / "data", target / "data")
-    for path in [root / "README.md", root / "LICENSE", app[0]]:
+    for path in [
+        root / "README.md",
+        root / "LICENSE",
+        root / "NOTICE",
+        root / "COMMERCIAL.md",
+        app[0],
+    ]:
         shutil.copy(path, target / path.name)
     (args.output / "io.github.iller7.TypeAsYouSpeak.json").write_text(
         json.dumps(manifest, indent=2) + "\n"

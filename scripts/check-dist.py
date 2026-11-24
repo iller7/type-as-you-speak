@@ -41,7 +41,7 @@ def check_distributions(directory: Path) -> None:
         "install.sh",
         "uv.lock",
         "config/default.toml",
-        "packaging/aur/PKGBUILD",
+        "packaging/aur/PKGBUILD.in",
         "packaging/fedora/type-as-you-speak.spec",
         "packaging/deb/build-deb.sh",
         "data/type-as-you-speak.desktop",

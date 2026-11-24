@@ -1,25 +1,11 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Faizal Sahebdin
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Live dictation session: types into the focused window as you speak.
+"""Run a dictation session that types into the focused application.
 
-Flow (streaming, Mac-like):
-  1. start mic capture (audio is buffered while the model loads)
-  2. load Whisper model (GPU, CPU fallback) + warm up
-  3. loop over ~0.3 s chunks:
-       - VAD marks speech vs silence
-       - heard-but-uncommitted audio is re-transcribed every ~0.9 s
-       - only words older than COMMIT_LAG_S are typed: they have finalised
-         with full sentence context, so they never change and punctuation
-         lands at real sentence ends
-       - already-typed words seed the next transcription as context, so the
-         model continues your sentence instead of restarting it
-  4. stays open (output muted) until the dictation key is pressed again,
-     or the 10-minute safety cap is reached
-  5. on stop, commit anything pending, then exit
+Strict-offline enforcement and model preparation complete before microphone capture starts. The session retranscribes recent audio and commits stable words while retaining sentence context.
 
-Test hook: set DICTATE_WAV=/path/to.wav to read that file instead of the mic
-(same chunk loop, same VAD/flush/stop logic).
+Set DICTATE_WAV=/path/to.wav to exercise the same chunk, VAD, flush and stop logic using a recording instead of a microphone.
 """
 import ctypes
 import numpy as np
@@ -35,9 +21,7 @@ import time
 from pathlib import Path
 
 # ---- configuration ----------------------------------------------------------
-# All tunables live in config.py (defaults in config/default.toml), overridable
-# by the user config file or DICTATE_* env vars. Loaded once at import so the
-# rest of this file can keep reading plain module globals.
+# All tunables live in config.py (defaults in config/default.toml), overridable by the user config file or DICTATE_* env vars. Loaded once at import so the rest of this file can keep reading plain module globals.
 try:
     from . import config as _cfgmod
     from . import privacy as _privacy

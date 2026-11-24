@@ -39,3 +39,7 @@ Write Markdown paragraphs and list items on single source lines, with visual wra
 ## Licensing contributions
 
 The public core is AGPL-3.0-only; see [licensing scope](docs/licensing.md). Contributions under that licence do not automatically grant alternative commercial-licensing rights. Do not claim a CLA exists or include outside contributions in a proprietary edition without the copyright-holder permissions required for that use. The contributor-rights process remains part of issue #10.
+
+## Community and triage
+
+Follow the [Code of Conduct](CODE_OF_CONDUCT.md) and [support guidance](SUPPORT.md). GitHub Pages is the documentation home; the wiki is not a second source of truth. Issue forms assign a type label. Maintainers add one priority (`priority:P0`–`priority:P3`) and relevant `area:*` labels; use status labels only while active or awaiting a decision. PR labels are automated from branch names and changed paths, with manual corrections where needed. Release notes are generated from labelled PRs.

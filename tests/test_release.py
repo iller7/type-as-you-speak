@@ -64,3 +64,23 @@ def test_release_does_not_require_a_handwritten_changelog(monkeypatch):
 
     monkeypatch.setattr(Path, "read_text", read_text)
     assert release_module().check_versions(ROOT) == PROJECT_VERSION
+
+
+def test_flatpak_cannot_build_a_legacy_release(monkeypatch):
+    import json
+
+    original = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        text = original(path, *args, **kwargs)
+        if path.name == "io.github.iller7.TypeAsYouSpeak.json":
+            manifest = json.loads(text)
+            manifest["modules"][-1]["sources"] = [
+                {"type": "git", "url": "https://example.invalid/app", "tag": "v0.0.0"}
+            ]
+            return json.dumps(manifest)
+        return text
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    with pytest.raises(ValueError, match="Flatpak.*current checkout"):
+        release_module().check_versions(ROOT)

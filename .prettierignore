@@ -2,3 +2,4 @@
 build/
 dist/
 uv.lock
+docs/project-direction.md

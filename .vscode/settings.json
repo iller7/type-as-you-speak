@@ -8,7 +8,9 @@
   },
   "[python]": {
     "editor.tabSize": 4,
-    "editor.insertSpaces": true
+    "editor.insertSpaces": true,
+    "editor.wordWrap": "on",
+    "editor.rulers": []
   },
   "[makefile]": {
     "editor.insertSpaces": false
