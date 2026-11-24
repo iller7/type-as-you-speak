@@ -23,12 +23,15 @@ shopt -s nullglob
 wheels=("$WHEELHOUSE"/type_as_you_speak-*.whl)
 [ "${#wheels[@]}" -eq 1 ] || { echo 'Expected exactly one application wheel' >&2; exit 1; }
 "$PY" -m pip install --no-compile --no-index --no-deps --target "$STAGE/$PYDEPS" "${wheels[0]}"
-rm -rf "$STAGE/$PYDEPS/bin"
+rm -rf "${STAGE:?}/${PYDEPS:?}/bin"
 "$PY" scripts/audit.py "$STAGE/$PYDEPS" --output "$STAGE/usr/share/doc/type-as-you-speak/dependency-audit.json"
 PYTHONPATH="$STAGE/$PYDEPS" "$PY" -c 'import numpy, onnxruntime, faster_whisper; from PySide6 import QtWidgets; from type_as_you_speak.cli import main; main(["--version"])'
+bash packaging/build-ydotool.sh "$STAGE"
 cat > "$STAGE/usr/bin/tays" <<EOF
 #!/usr/bin/python${PYVER}
+import os
 import sys
+os.environ["PATH"] = os.environ.get("PATH", "/usr/bin:/bin") + ":/opt/type-as-you-speak/bin"
 sys.path.insert(0, "/opt/type-as-you-speak/pydeps")
 from type_as_you_speak.cli import main
 sys.exit(main())

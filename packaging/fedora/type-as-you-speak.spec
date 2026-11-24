@@ -24,6 +24,7 @@ Requires:       libxkbcommon-x11
 Requires:       xcb-util-cursor
 Requires:       mesa-libEGL
 Requires:       libglvnd-opengl
+Requires:       libglvnd-glx
 
 %description
 Local, streaming speech-to-text dictation using faster-whisper. Includes the

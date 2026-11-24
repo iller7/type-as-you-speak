@@ -65,5 +65,6 @@ EOF
     install -Dm644 "data/icons/type-as-you-speak-$size.png" \
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png"
   done
-  install -Dm644 README.md LICENSE "$pkgdir/usr/share/doc/$pkgname/"
+  install -dm755 "$pkgdir/usr/share/doc/$pkgname"
+  install -m644 README.md LICENSE "$pkgdir/usr/share/doc/$pkgname/"
 }

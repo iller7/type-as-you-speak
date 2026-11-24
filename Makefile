@@ -11,7 +11,7 @@ lint:
 	uv run --locked ruff check src scripts tests
 	uv run --locked ruff format --check scripts/*.py tests
 	actionlint
-	shellcheck install.sh bin/*.sh scripts/*.sh packaging/deb/*.sh
+	shellcheck install.sh bin/*.sh scripts/*.sh packaging/*.sh packaging/deb/*.sh
 	uv run --locked zizmor --offline .github/workflows
 
 test:
