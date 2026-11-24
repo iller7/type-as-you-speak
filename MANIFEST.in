@@ -1,5 +1,5 @@
-include LICENSE README.md CHANGELOG.md RELEASES.md CONTRIBUTING.md SECURITY.md pyproject.toml uv.lock
-include install.sh Makefile mise.toml .python-version .dockerignore
+include LICENSE README.md CHANGELOG.md RELEASES.md CONTRIBUTING.md SECURITY.md TODO.md AGENTS.md pyproject.toml uv.lock
+include install.sh Makefile mise.toml .python-version .dockerignore .editorconfig .prettierrc.json .prettierignore
 recursive-include src *.py
 recursive-include data *.desktop *.xml *.svg *.png
 recursive-include config *.toml *.txt
@@ -8,6 +8,8 @@ recursive-include bin *.sh
 recursive-include scripts *.py *.sh
 recursive-include packaging *.sh *.spec *.json *.md *.Dockerfile control PKGBUILD
 recursive-include tests *.py
+recursive-include docs *.md
+recursive-include .agents/guides *.md
 prune .github
 prune dist
 prune build

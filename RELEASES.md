@@ -1,6 +1,6 @@
 # Cutting a release
 
-1. Update `pyproject.toml`, `src/type_as_you_speak/__init__.py`, the AUR `pkgver`, Fedora `Version`, Flatpak source tag/commit, AppStream release entry, README download examples and CHANGELOG. Use a stable `X.Y.Z` version. Run `uv run --locked python scripts/check-release.py` to catch version drift.
+1. Update `pyproject.toml`, `src/type_as_you_speak/__init__.py`, the AUR `pkgver`, Fedora `Version`, Flatpak source tag/commit, AppStream release entry, installation-guide examples where needed and CHANGELOG. Use a stable `X.Y.Z` version. Run `uv run --locked python scripts/check-release.py` to catch version drift.
 2. Run `make check`, `make build` and the distro package checks. Review dependency/licence changes and complete the real-desktop checklist in CONTRIBUTING.md. Record remaining hardware/platform gaps explicitly.
 3. Merge through a reviewed PR with passing checks. Push an annotated `vX.Y.Z` tag pointing to that commit. Publishing is tag-triggered; do not use a production release tag to test CI.
 4. The release workflow repeats shared code checks and native package builds, verifies the tag, builds Python distributions with the locked backend, checks source contents, and then publishes wheel/sdist, distro-specific `.deb` files, Fedora RPM/SRPM, `SHA256SUMS` and build attestations. Only the final publish job has release-write credentials. Reruns fail rather than overwrite an existing release or assets; investigate partial drafts before retrying.
