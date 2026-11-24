@@ -1,3 +1,7 @@
+---
+title: "How it works"
+---
+
 # How it works
 
 1. **Capture** — the mic is read as ~0.3 s chunks (16 kHz mono) while a drainer thread keeps filling a buffer, so no early speech is lost.

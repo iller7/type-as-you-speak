@@ -1,6 +1,6 @@
 # Contributing
 
-Read [AGENTS.md](AGENTS.md) for project-wide guidance and [TODO.md](TODO.md) for priorities and status. Keep the backlog current as work progresses; preserve completion evidence and remaining verification gaps. Local agents can use the [Python desktop guide](.agents/guides/python-desktop.md) without a cloud LLM provider. If the local harness does not load AGENTS.md automatically, include it in the initial project context.
+Read [AGENTS.md](AGENTS.md) for project-wide guidance and [TODO.md](TODO.md) for the roadmap to GitHub Issues, which owns priorities, acceptance criteria and live status. Record completion evidence and remaining verification gaps in the linked issue. Local agents can use the [Python desktop guide](.agents/guides/python-desktop.md) without a cloud LLM provider. If the local harness does not load AGENTS.md automatically, include it in the initial project context.
 
 Use Python 3.14 for development. We test Python 3.11–3.14 for Linux distro compatibility. Python 3.15 awaits compatible ONNX Runtime wheels. `mise install` supplies pinned developer tools; alternatively install the versions in `mise.toml` yourself.
 
@@ -16,7 +16,7 @@ make package-rpm
 
 The K8s repository's practices are adapted here as pinned tools, dependency automation, ownership and explicit validation/rollback notes. Dependabot maintains uv, Actions and container dependencies without requiring a separate Renovate installation. Desktop release checks also need real installed packages, AppStream/desktop metadata, a GUI launch and microphone/input testing.
 
-Use small pull requests with a Conventional Commit title. Add regression tests for behaviour changes. Describe test results, compatibility, privacy implications and rollback in the PR template. Do not create agent plans or workflow state in the repository. Do not add transcript/audio fixtures from real users.
+Use small pull requests with a Conventional Commit title and an associated GitHub issue. Use `Refs #123` for partial progress and `Closes #123` only when all acceptance criteria are met. Labels organise the automatically generated release notes; unlabelled PRs remain in the catch-all category. Add regression tests for behaviour changes. Describe test results, compatibility, privacy implications and rollback in the PR template. Do not create agent plans or workflow state in the repository. Do not add transcript/audio fixtures from real users.
 
 ## Verification boundaries
 

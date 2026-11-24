@@ -45,25 +45,18 @@ def check_versions(root: Path, tag: str | None = None) -> str:
             raise ValueError(
                 f"{name} version {value!r} does not match project version {version}"
             )
-    if f"## [{version}]" not in (root / "CHANGELOG.md").read_text():
-        raise ValueError(f"Missing CHANGELOG entry for {version}")
     return version
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag")
-    parser.add_argument("--notes", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     try:
         version = check_versions(root, args.tag)
     except (ValueError, AttributeError, StopIteration, KeyError) as exc:
         parser.error(str(exc))
-    if args.notes:
-        changelog = (root / "CHANGELOG.md").read_text()
-        section = changelog.split(f"## [{version}]", 1)[1].split("\n## [", 1)[0]
-        args.notes.write_text(f"## [{version}]" + section.rstrip() + "\n")
     print(f"Release metadata agrees: {version}")
 
 

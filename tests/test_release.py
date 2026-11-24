@@ -52,3 +52,15 @@ def test_packaging_version_drift_is_rejected(tmp_path):
     )
     with pytest.raises(ValueError, match="Fedora"):
         release_module().check_versions(tmp_path)
+
+
+def test_release_does_not_require_a_handwritten_changelog(monkeypatch):
+    original = Path.read_text
+
+    def read_text(path, *args, **kwargs):
+        if path.name == "CHANGELOG.md":
+            return "# Changelog\n\nSee the automatically generated GitHub releases.\n"
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    assert release_module().check_versions(ROOT) == PROJECT_VERSION

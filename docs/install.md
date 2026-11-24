@@ -1,3 +1,7 @@
+---
+title: "Installation"
+---
+
 # Installation
 
 ## Requirements
@@ -13,7 +17,7 @@
 | **Clipboard** (`wl-copy` on Wayland, `xclip` on X11) | clipboard fallback if typing fails              | `apt install wl-clipboard` / `apt install xclip` |
 | **libnotify** (`notify-send`)                        | desktop notifications                           | usually present                                  |
 
-For source installs, verify the client/daemon version and current distro availability. Debian 12 supplies an older ydotool, while Debian 13 may require backports or a reviewed source build. The new Debian/Ubuntu packages include private compatible tools. Source-installer validation is tracked under [T025](../TODO.md).
+For source installs, verify the client/daemon version and current distro availability. Debian 12 supplies an older ydotool, while Debian 13 may require backports or a reviewed source build. The new Debian/Ubuntu packages include private compatible tools. Source-installer validation is tracked under [T025](https://github.com/iller7/type-as-you-speak/issues/18).
 
 The Whisper model (~1.5 GB for `medium.en`) is downloaded automatically on first run and cached under `~/.cache/huggingface`.
 
@@ -53,15 +57,15 @@ _(the filename carries the version — future releases are on the Releases page)
 
 All package-channel builds are **CPU builds** (no GPU in a sandbox) — the right choice if you don't need GPU acceleration. The power-user route (Options A/B) is the one that adds the CUDA build.
 
-Other channels have recipes in the repository. Submission/publication status needs confirmation under [T010](../TODO.md); a recipe alone is not proof that a channel is published:
+Other channels have recipes in the repository. Submission/publication status needs confirmation under [T010](https://github.com/iller7/type-as-you-speak/issues/15); a recipe alone is not proof that a channel is published:
 
 - **Arch / AUR:** `packaging/aur/PKGBUILD`
 - **Fedora / Copr:** `packaging/fedora/type-as-you-speak.spec`
 - **Flatpak / Flathub:** `packaging/flatpak/…json` (experimental; desktop/sandbox validation remains open)
 
-To build a matching distro package, use the container targets in the [packaging guide](../packaging/README.md). These provide the required build tools and avoid mixing Python ABIs.
+To build a matching distro package, use the container targets in the [packaging guide](https://github.com/iller7/type-as-you-speak/blob/master/packaging/README.md). These provide the required build tools and avoid mixing Python ABIs.
 
-See [`packaging/README.md`](../packaging/README.md) for the full per-channel notes.
+See [`packaging/README.md`](https://github.com/iller7/type-as-you-speak/blob/master/packaging/README.md) for the full per-channel notes.
 
 ### Verify
 
