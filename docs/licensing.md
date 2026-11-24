@@ -10,19 +10,15 @@ AGPL permits commercial activity. It requires corresponding source and the appli
 
 For different permissions, see [commercial licensing enquiries](https://github.com/iller7/type-as-you-speak/blob/master/COMMERCIAL.md). An alternative agreement can cover only rights the copyright holder controls. No commercial contract, contributor rights grant, paid edition or cloud service is created by publishing that page.
 
-## Scope and previous releases
+## Licensing scope
 
-| Material                                         | Terms and limits                                                                                                                                                                                               |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Current first-party app, applet and project code | AGPL-3.0-only unless a file explicitly states otherwise                                                                                                                                                        |
-| AUR recipe pinned to v0.5.1                      | Continues to declare MIT for that legacy source; update licence, version and checksum together for the first AGPL release                                                                                      |
-| Code already released under MIT                  | Retains its original MIT permissions; the notice is preserved in [MIT-legacy.txt](https://github.com/iller7/type-as-you-speak/blob/master/LICENSES/MIT-legacy.txt). New AGPL changes are not offered under MIT |
-| AppStream descriptive metadata                   | Its existing CC0-1.0 metadata declaration is unchanged                                                                                                                                                         |
-| Bundled ydotool                                  | Upstream AGPL terms, notices and source archive; not relicensed as proprietary by this project                                                                                                                 |
-| Python/native dependencies, including Qt         | Their own notices and licences; review the actual wheel/native package contents                                                                                                                                |
-| Model weights and audio fixtures                 | Per-model/per-fixture terms and provenance; never assume the app licence covers them                                                                                                                           |
-
-Changing this checkout does not rewrite old tags, binaries or permissions already granted. Current build metadata may have the same development version number as the previous release; publish a new version, never replace an existing release to change its licence.
+| Material                                         | Terms and limits                                                                               |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Current first-party app, applet and project code | AGPL-3.0-only unless a file explicitly states otherwise                                        |
+| AppStream descriptive metadata                   | Its existing CC0-1.0 metadata declaration is unchanged                                         |
+| Bundled ydotool                                  | Upstream AGPL terms, notices and source archive; not relicensed as proprietary by this project |
+| Python/native dependencies, including Qt         | Their own notices and licences; review the actual wheel/native package contents                |
+| Model weights and audio fixtures                 | Per-model/per-fixture terms and provenance; never assume the app licence covers them           |
 
 ## Contributions and commercial rights
 

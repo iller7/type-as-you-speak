@@ -4,7 +4,7 @@ title: "Installation"
 
 # Installation
 
-Strict-offline controls describe the current source checkout. Existing v0.5.1 release binaries predate these protections; no updated release has been published yet.
+These controls apply to the current source checkout. No supported binary release is published yet.
 
 ## Requirements
 
@@ -47,21 +47,13 @@ This gets you the `tays` command. You still need the OS prerequisites above (esp
 
 ### Option C — ready-made `.deb` (CPU build)
 
-Choose an asset from the [Releases page](https://github.com/iller7/type-as-you-speak/releases) that matches your distro and architecture. Published v0.5.1 predates the new distro-specific packaging. The following is the legacy v0.5.1 example:
-
-```bash
-curl -L -o tays.deb \
-  https://github.com/iller7/type-as-you-speak/releases/download/v0.5.1/type-as-you-speak_0.5.1_amd64.deb
-sudo apt install ./tays.deb
-```
-
-_(the filename carries the version — future releases are on the Releases page)_
+No supported binary release is published yet. Use a source installation above. Future verified packages will appear on the [Releases page](https://github.com/iller7/type-as-you-speak/releases); do not use removed legacy download URLs.
 
 All package-channel builds are **CPU builds** (no GPU in a sandbox) — the right choice if you don't need GPU acceleration. The power-user route (Options A/B) is the one that adds the CUDA build.
 
 Other channels have recipes in the repository. Submission/publication status needs confirmation under [T010](https://github.com/iller7/type-as-you-speak/issues/15); a recipe alone is not proof that a channel is published:
 
-- **Arch / AUR:** `packaging/aur/PKGBUILD`
+- **Arch / AUR:** the `packaging/aur/PKGBUILD.in` template (not a published AUR package)
 - **Fedora / Copr:** `packaging/fedora/type-as-you-speak.spec`
 - **Flatpak / Flathub:** `packaging/flatpak/…json` (experimental; desktop/sandbox validation remains open)
 

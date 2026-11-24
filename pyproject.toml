@@ -9,7 +9,7 @@ description = "Privacy-first real-time dictation for focused desktop apps, with 
 readme = "README.md"
 requires-python = ">=3.11,<3.16"
 license = "AGPL-3.0-only"
-license-files = ["LICENSE", "NOTICE", "COMMERCIAL.md", "LICENSES/MIT-legacy.txt"]
+license-files = ["LICENSE", "NOTICE", "COMMERCIAL.md"]
 authors = [{ name = "Faizal Sahebdin", email = "faizal.sahebdin@gmail.com" }]
 keywords = ["dictation", "speech-to-text", "whisper", "wayland", "x11", "linux", "asr"]
 classifiers = [
@@ -64,6 +64,7 @@ markers = ["recognition: real pinned-model CPU inference; explicit model prepara
 
 [tool.ruff]
 target-version = "py311"
+line-length = 88
 
 [tool.ruff.lint]
 select = ["E9", "F63", "F7", "F82"]

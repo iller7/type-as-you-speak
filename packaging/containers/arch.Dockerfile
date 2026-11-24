@@ -4,10 +4,10 @@ RUN pacman -Syu --noconfirm --needed base-devel python-build python-installer py
 WORKDIR /source
 COPY . .
 # Exercise this checkout rather than downloading and retesting an older release tag.
-RUN version=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD) && \
+RUN version=$(sed -n 's/^pkgver=//p' packaging/aur/PKGBUILD.in) && \
     mkdir -p /home/builder/package && \
     tar -czf "/home/builder/package/type-as-you-speak-${version}.tar.gz" --transform "s,^,type-as-you-speak-${version}/," . && \
-    cp packaging/aur/PKGBUILD /home/builder/package/PKGBUILD && \
+    cp packaging/aur/PKGBUILD.in /home/builder/package/PKGBUILD && \
     cd /home/builder/package && \
     sed -i 's|^source=.*|source=("$pkgname-$pkgver.tar.gz")|' PKGBUILD && \
     hash=$(sha256sum "type-as-you-speak-${version}.tar.gz" | cut -d' ' -f1) && \

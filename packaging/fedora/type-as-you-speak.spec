@@ -73,7 +73,6 @@ rpm -q python3-onnxruntime > %{buildroot}/usr/share/doc/%{name}/native-onnx-buil
 install -Dm644 LICENSE %{buildroot}/usr/share/licenses/%{name}/LICENSE
 install -Dm644 NOTICE %{buildroot}/usr/share/licenses/%{name}/NOTICE
 install -Dm644 COMMERCIAL.md %{buildroot}/usr/share/doc/%{name}/COMMERCIAL.md
-install -Dm644 LICENSES/MIT-legacy.txt %{buildroot}/usr/share/licenses/%{name}/LICENSES/MIT-legacy.txt
 
 %py3_shebang_fix %{buildroot}/opt/%{name}/pydeps
 

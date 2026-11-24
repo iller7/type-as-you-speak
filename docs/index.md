@@ -11,7 +11,7 @@ body_class: home
   <div class="chips"><span>Linux desktop today</span><span>macOS &amp; Windows planned</span><span>Optional cloud planned</span></div>
 </div>
 
-<div class="notice">Privacy hardening is available in the current source checkout. Existing v0.5.1 binaries predate these protections; an updated release has not been published. <a href="{{ '/install.html' | relative_url }}">Check installation guidance.</a></div>
+<div class="notice">Install from the current source checkout. No supported binary release is published yet. <a href="{{ '/install.html' | relative_url }}">Check installation guidance.</a></div>
 
 ## Less typing. More choice.
 

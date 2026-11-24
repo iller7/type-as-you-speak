@@ -6,7 +6,7 @@ KDE Plasma and GNOME are desktops; Debian/Ubuntu, Arch and Fedora are distributi
 | -------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Debian 12/13, Ubuntu 24.04/26.04 | `packaging/containers/debian.Dockerfile` | Native interpreter, locked dependencies, vulnerability audit, install, imports, offscreen Qt launch | Tagged GitHub release assets                                     |
 | Fedora 44/45                     | `packaging/containers/fedora.Dockerfile` | Offline RPM/SRPM, native ABI, audit, install, imports, offscreen Qt and installed CPU recognition   | Tagged GitHub release assets; Copr is separate                   |
-| Arch                             | `packaging/aur/PKGBUILD`                 | Non-root makepkg build from the current checkout                                                    | AUR submission and runtime dependency validation remain separate |
+| Arch                             | `packaging/aur/PKGBUILD.in`              | Non-root makepkg build from the current checkout                                                    | AUR submission and runtime dependency validation remain separate |
 | Flatpak                          | `packaging/flatpak/`                     | Prototype with pinned source commits and an offline dependency generator                            | Experimental; not a release asset or a Flathub-ready submission  |
 
 These are CI targets, not a claim that every desktop/hardware combination has been tested. Native package jobs currently target x86-64. PySide6's current ARM64 Linux wheel needs a newer glibc than some target distributions; do not advertise ARM64 packages until native builds are added and tested.
@@ -37,11 +37,11 @@ This is an upstream distribution RPM, not a claim of compliance for inclusion in
 
 The PKGBUILD uses `python -m build` and `python -m installer`; Python runtime dependencies are supplied by Arch or AUR. Do not assume every inference dependency is available in the official repositories. Install/review those dependencies before building. The current supported interpreter range is 3.11–3.14; an Arch Python transition outside that range needs compatibility work first.
 
-CI builds this checkout with a temporary local source archive and calculated checksum, so it cannot accidentally validate an old release. The published PKGBUILD retains a real release-tarball checksum; update it only after the new tag exists. The non-root package-build check does not certify microphone, GPU or GUI runtime operation.
+CI builds this checkout with a temporary local source archive and calculated checksum, so it cannot accidentally validate an old release. The checked-in `.in` template is not a published package recipe; CI supplies the archive and checksum before invoking makepkg. The non-root package-build check does not certify microphone, GPU or GUI runtime operation.
 
 ## Flatpak
 
-The checked-in manifest is a prototype template. It pins git commits, uses app-private configuration/cache and exposes only the host ydotool socket instead of all input devices. A host ydotool daemon is still required; users must not weaken socket permissions to share it across users.
+The checked-in manifest is a local-build prototype. Third-party sources pin git commits; the app source uses the current checkout, excluding documentation, local state and credentials. Store submission requires a separately reviewed immutable app source and checksum. The prototype uses app-private configuration/cache and exposes only the host ydotool socket instead of all input devices. A host ydotool daemon is still required; users must not weaken socket permissions to share it across users.
 
 Generate dependencies on Linux x86-64 with Python 3.13 (the Freedesktop 25.08 runtime's Python):
 
@@ -64,7 +64,7 @@ Container checks cannot exercise a real microphone, compositor permissions, focu
 
 Pull requests still build, install and audit the native packages, but do not upload large binaries. To obtain test packages, run the CI workflow manually on the desired branch; those package artifacts expire after one day. Tag-triggered release builds also upload packages for the publish job, which attaches them to the GitHub release. This limits temporary storage on GitHub Free. Existing artifacts are not deleted by this policy change.
 
-The AUR recipe currently downloads the published MIT v0.5.1 source and retains MIT metadata for that source. Update its licence, version and checksum together when publishing the first AGPL release. The Arch CI source override smoke-builds the current checkout; it does not publish an AUR package.
+`packaging/aur/PKGBUILD.in` is an AGPL-3.0-only template, not an installable AUR release. Arch CI renders it using an archive of the current checkout and computes that archive's SHA-256 before running makepkg. It does not download an obsolete release or publish an AUR package. Downstream publication requires a new version and a verified source archive/checksum.
 
 ### Fedora 45 native ONNX provider
 
@@ -78,4 +78,4 @@ The verification stage checks clean RPM installation and offscreen Qt, then exec
 
 ### Strict offline runtime dependency
 
-The default strict-offline process guard requires `libseccomp2` in DEB builds/runtime and `libseccomp` in Fedora builds/runtime. It fails closed if unavailable. The pinned legacy AUR recipe still describes the old MIT release; add this runtime dependency together with its first AGPL release version/licence/checksum update. Experimental Flatpak must also verify the library and filter availability inside its sandbox before publication; its GUI model-download capability does not establish strict engine protection.
+The default strict-offline process guard requires `libseccomp2` in DEB builds/runtime and `libseccomp` in Fedora builds/runtime. It fails closed if unavailable. The Arch template declares `libseccomp`; downstream runtime validation remains required. Experimental Flatpak must also verify the library and filter availability inside its sandbox before publication; its GUI model-download capability does not establish strict engine protection.

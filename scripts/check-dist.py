@@ -14,7 +14,7 @@ def check_distributions(directory: Path) -> None:
         raise ValueError("Expected one wheel and one source archive in dist/")
     root = Path(__file__).resolve().parents[1]
     project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
-    licence_files = {"LICENSE", "NOTICE", "COMMERCIAL.md", "LICENSES/MIT-legacy.txt"}
+    licence_files = {"LICENSE", "NOTICE", "COMMERCIAL.md"}
     with zipfile.ZipFile(wheels[0]) as wheel:
         metadata_path = next(
             n for n in wheel.namelist() if n.endswith(".dist-info/METADATA")
@@ -41,7 +41,7 @@ def check_distributions(directory: Path) -> None:
         "install.sh",
         "uv.lock",
         "config/default.toml",
-        "packaging/aur/PKGBUILD",
+        "packaging/aur/PKGBUILD.in",
         "packaging/fedora/type-as-you-speak.spec",
         "packaging/deb/build-deb.sh",
         "data/type-as-you-speak.desktop",

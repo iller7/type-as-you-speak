@@ -2,34 +2,18 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Optional settings GUI — ``tays gui``.
 
-A single window to pick the model and every other option instead of editing
-config.toml by hand:
+A single window to pick the model and every other option instead of editing config.toml by hand:
 
-  * session panel — live status (polled from ``tays status --json``, showing
-    the EXACT runtime device, e.g. "medium.en on NVIDIA GeForce RTX 5090
-    (CUDA)") and a start/stop button (drives ``tays toggle`` as a subprocess,
-    so the engine always runs in its own process, exactly like the CLI);
-  * General tab — Model & device (downloaded marks + Download button,
-    Auto / GPU-CUDA / GPU-ROCm / CPU radios gated on what the installed
-    CTranslate2 build can actually use), Background audio ducking;
-  * Corrections tab — hotwords (inline + file, with the file's contents shown
-    in an editable area below), hallucination tails (inline + file, same
-    treatment);
+  * session panel — live status (polled from ``tays status --json``, showing the EXACT runtime device, e.g. "medium.en on NVIDIA GeForce RTX 5090 (CUDA)") and a start/stop button (drives ``tays toggle`` as a subprocess, so the engine always runs in its own process, exactly like the CLI);
+  * General tab — Model & device (downloaded marks + Download button, Auto / GPU-CUDA / GPU-ROCm / CPU radios gated on what the installed CTranslate2 build can actually use), Background audio ducking;
+  * Corrections tab — hotwords (inline + file, with the file's contents shown in an editable area below), hallucination tails (inline + file, same treatment);
   * Advanced tab — Typing & pacing, Decode stability.
 
-Every field carries a hover tooltip AND a context-help line in the window's
-status bar (shown as you hover — robust across desktops). Language is a
-dropdown of flags + native names; picking a non-English language warns about
-English-only (.en) models and switches to their multilingual twin when that
-is already downloaded.
+Every field carries a hover tooltip AND a context-help line in the window's status bar (shown as you hover — robust across desktops). Language is a dropdown of flags + native names; picking a non-English language warns about English-only (.en) models and switches to their multilingual twin when that is already downloaded.
 
-User-facing strings go through QObject.tr() so the window is translatable
-once .ts/.qm files are added.
+User-facing strings go through QObject.tr() so the window is translatable once .ts/.qm files are added.
 
-Saving writes ``~/.config/type-as-you-speak/config.toml`` with ``tomlkit`` in
-a way that preserves the file's existing comments and layout, and writes the
-hotwords / tails files when their contents have been edited. Requires the
-optional ``gui`` extra (PySide6 + tomlkit); the core stays lean.
+Saving writes ``~/.config/type-as-you-speak/config.toml`` with ``tomlkit`` in a way that preserves the file's existing comments and layout, and writes the hotwords / tails files when their contents have been edited. Requires the optional ``gui`` extra (PySide6 + tomlkit); the core stays lean.
 """
 import json
 import os

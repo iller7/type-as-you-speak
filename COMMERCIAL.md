@@ -6,4 +6,4 @@ If you need rights that the AGPL does not grant, contact [Faizal Sahebdin](mailt
 
 Third-party libraries, model weights, bundled tools and external contributions are not automatically covered by an alternative first-party agreement. Their rights must be checked separately. In particular, contributions received under AGPL alone do not grant a right to relicense them commercially; obtain the necessary copyright-holder permissions before including them in an alternatively licensed edition. A contributor commercial-rights agreement has not been adopted yet.
 
-See [licensing scope and history](https://iller7.github.io/type-as-you-speak/licensing.html) for the public licence, older MIT releases and the remaining audit.
+See [licensing scope](https://iller7.github.io/type-as-you-speak/licensing.html) for the public licence and third-party terms.

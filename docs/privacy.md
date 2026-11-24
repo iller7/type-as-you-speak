@@ -4,7 +4,7 @@ title: "Privacy and network access"
 
 # Privacy and network access
 
-These controls apply to the current source checkout. Existing v0.5.1 release binaries predate them; no updated release has been published yet.
+These controls apply to the current source checkout. No supported binary release is published yet.
 
 ## Strict offline dictation
 

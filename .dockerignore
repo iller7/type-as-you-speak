@@ -12,3 +12,5 @@ build
 .pytest_cache
 .ruff_cache
 .DS_Store
+
+docs/project-direction.md

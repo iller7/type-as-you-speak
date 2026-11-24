@@ -24,16 +24,18 @@ def check_versions(root: Path, tag: str | None = None) -> str:
         and any(isinstance(t, ast.Name) and t.id == "__version__" for t in n.targets)
     )
     spec = (root / "packaging/fedora/type-as-you-speak.spec").read_text()
-    aur = (root / "packaging/aur/PKGBUILD").read_text()
+    aur = (root / "packaging/aur/PKGBUILD.in").read_text()
     flatpak = json.loads(
         (root / "packaging/flatpak/io.github.iller7.TypeAsYouSpeak.json").read_text()
     )
+    app_source = flatpak["modules"][-1]["sources"][0]
+    if app_source.get("type") != "dir" or app_source.get("path") != "../..":
+        raise ValueError("Flatpak prototype must build the current checkout")
     appstream = ET.parse(root / "data/type-as-you-speak.metainfo.xml")
     versions = {
         "__init__": init_version,
         "Fedora": re.search(r"^Version:\s+(\S+)", spec, re.M).group(1),
         "AUR": re.search(r"^pkgver=(\S+)", aur, re.M).group(1),
-        "Flatpak": flatpak["modules"][-1]["sources"][0]["tag"].removeprefix("v"),
         "AppStream": appstream.find("releases/release").attrib["version"],
     }
     if tag is not None:

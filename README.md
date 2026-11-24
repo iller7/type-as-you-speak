@@ -4,7 +4,7 @@
 
 Real-time dictation with privacy built in. Speak into the app you are using: text is typed into its focused input field, subject to desktop permissions and application compatibility. Strict offline dictation is enabled by default.
 
-The privacy hardening described here is on `master`; existing v0.5.1 binaries predate these protections.
+Install from the current source checkout. No supported binary release is published yet.
 
 Linux desktop integration is available today. macOS, Windows and an optional cloud service are planned; they are not current desktop/service features.
 
@@ -38,4 +38,4 @@ Use Python 3.14 for development, install the pinned tools, then run `make setup`
 
 ## Licence
 
-The public first-party source uses [AGPL-3.0-only](LICENSE), with [separate commercial licensing enquiries](COMMERCIAL.md) for code the maintainer controls. Earlier MIT releases retain their permissions. Dependencies, model weights and bundled tools retain their own terms; see the [licensing guide](docs/licensing.md).
+The public first-party source uses [AGPL-3.0-only](LICENSE), with [separate commercial licensing enquiries](COMMERCIAL.md) for code the maintainer controls. Dependencies, model weights and bundled tools retain their own terms; see the [licensing guide](docs/licensing.md).
