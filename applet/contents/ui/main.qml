@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0-only
 // type-as-you-speak — Plasma 6 panel applet.
 //
 // The icon is always present: grey while the dictation session is stopped,

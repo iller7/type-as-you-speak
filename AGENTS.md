@@ -40,3 +40,7 @@ Read `TODO.md` before substantial work. It is a concise roadmap to GitHub Issues
 - For audio tests, use local generation or reviewed, redistributable fixtures with known transcripts. Ordinary tests must not require a microphone, cloud TTS/LLM, user credentials or permission to type into the desktop.
 - Keep speech, hotwords, credentials and real user data out of logs, fixtures, issues and CI artifacts. Respect input-device permissions; do not grant world-write access or silently add input-group membership.
 - Keep CI and hosting suitable for GitHub Free. Prefer fast checks for small changes and scoped slower checks where justified. Record storage, runner and hardware limitations without claiming GPU QA from CPU-only hosted runners.
+
+## Licensing
+
+The public core is AGPL-3.0-only. COMMERCIAL.md describes enquiries for separate written terms, not a blanket licence or an existing contract. Preserve legacy MIT and third-party notices; old releases keep their terms. Do not add a proprietary exception, claim contributor relicensing rights or include external code in a commercial edition without documented permission. Issue #10 retains the component/model/contributor-rights audit.

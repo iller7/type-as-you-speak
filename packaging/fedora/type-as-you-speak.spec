@@ -6,7 +6,7 @@ Name:           type-as-you-speak
 Version:        0.5.1
 Release:        1%{?dist}
 Summary:        Local dictation for Linux (Wayland and X11)
-License:        MIT
+License:        AGPL-3.0-only
 URL:            https://github.com/iller7/type-as-you-speak
 Source0:        type_as_you_speak-%{version}.tar.gz
 Source1:        wheelhouse.tar.gz
@@ -60,6 +60,9 @@ for size in 512 256 128 64 32; do
 done
 install -Dm644 README.md %{buildroot}/usr/share/doc/%{name}/README.md
 install -Dm644 LICENSE %{buildroot}/usr/share/licenses/%{name}/LICENSE
+install -Dm644 NOTICE %{buildroot}/usr/share/licenses/%{name}/NOTICE
+install -Dm644 COMMERCIAL.md %{buildroot}/usr/share/doc/%{name}/COMMERCIAL.md
+install -Dm644 LICENSES/MIT-legacy.txt %{buildroot}/usr/share/licenses/%{name}/LICENSES/MIT-legacy.txt
 
 %py3_shebang_fix %{buildroot}/opt/%{name}/pydeps
 

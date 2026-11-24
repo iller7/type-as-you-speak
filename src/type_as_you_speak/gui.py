@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Faizal Sahebdin
+# SPDX-License-Identifier: AGPL-3.0-only
 """Optional settings GUI — ``tays gui``.
 
 A single window to pick the model and every other option instead of editing
