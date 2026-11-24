@@ -1,5 +1,6 @@
 # Upstream bundled RPM, not a Fedora repository submission; see packaging/README.md.
 %global debug_package %{nil}
+%global native_system_requires dbus-libs fontconfig libstdc++ mesa-libEGL libglvnd-opengl libglvnd-glx libxkbcommon-x11 xcb-util-cursor
 
 Name:           type-as-you-speak
 Version:        0.5.1
@@ -16,20 +17,15 @@ Source1:        wheelhouse.tar.gz
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-rpm-macros
+BuildRequires:  %{native_system_requires}
 Requires:       python(abi) = %{python3_version}
+Requires:       %{native_system_requires}
 Requires:       ydotool
 Requires:       wl-clipboard
 Requires:       xclip
 Requires:       ffmpeg-free
 Requires:       pulseaudio-utils
 Requires:       libnotify
-Requires:       dbus-libs
-Requires:       fontconfig
-Requires:       libxkbcommon-x11
-Requires:       xcb-util-cursor
-Requires:       mesa-libEGL
-Requires:       libglvnd-opengl
-Requires:       libglvnd-glx
 
 %description
 Local, streaming speech-to-text dictation using faster-whisper. Includes the
