@@ -85,3 +85,9 @@ cd type-as-you-speak && git pull
 New code applies immediately. Re-run `./install.sh` only if you also want to refresh the Python dependencies.
 
 Package installs (`.deb`, and later AUR/Flatpak/Copr) update with their channel instead — e.g. `sudo apt install --only-upgrade ./tays.deb` when a newer release ships.
+
+## Fedora 45 RPM profile
+
+Fedora 45 uses Python 3.15 with Fedora's native ONNX Runtime package. Choose an RPM built for Fedora 45; installing it pulls in the native runtime dependency. Older releases may not provide this asset yet. To build the current checkout, run `make package-rpm` with Docker available; output is under `dist/packages/fedora/`, and filenames identify `fc45`. Fedora 44 remains a separate CI/build target.
+
+The regular source installer still expects a PyPI-compatible Python 3.11–3.14 environment. On Fedora 45, use the native RPM route for now; source-installer adaptation is tracked in [#18](https://github.com/iller7/type-as-you-speak/issues/18). The package uses the system interpreter without replacing it. See the [distribution guide](https://github.com/iller7/type-as-you-speak/blob/master/packaging/README.md) for native/bundled dependency scope.
