@@ -3,7 +3,7 @@ Maintainer: Faizal Sahebdin <iller7@gmail.com>
 Section: sound
 Priority: optional
 Homepage: https://github.com/iller7/type-as-you-speak
-Depends: python3 (>= 3.11), ydotool, wl-clipboard, xclip, ffmpeg
+Depends: @PYTHON@, wl-clipboard, xclip, ffmpeg, pulseaudio-utils, libnotify-bin, libfontconfig1, libegl1, libopengl0, libgl1, libxkbcommon0, libxkbcommon-x11-0, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-render-util0, libxcb-xinerama0, libxcb-xkb1, libdbus-1-3
 Description: type-as-you-speak dictation for Linux (Wayland & X11)
  Speak, and your words are typed into the focused window in real time.
  .

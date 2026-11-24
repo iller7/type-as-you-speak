@@ -1,68 +1,54 @@
 #!/usr/bin/env bash
-# Build a .deb for type-as-you-speak (CPU build).
-#
-# Produces: dist/type-as-you-speak_<version>_<arch>.deb
-#
-# Strategy: bundle the pure-Python app plus its Python dependencies under
-# /opt/type-as-you-speak/pydeps (so we don't rely on distro Python packages
-# that may not exist), and expose a /usr/bin/tays wrapper that puts that dir
-# on sys.path. System-level tools (ydotool, wl-clipboard, xclip, ffmpeg) are
-# declared as package dependencies.
+# Build on the target distribution: bundled native extensions require its Python ABI.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-
 PY="${PYTHON:-python3}"
-VER="$("$PY" - <<'EOF'
-import tomllib, pathlib
-print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])
-EOF
-)"
+VER="$("$PY" -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+PYVER="$("$PY" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 ARCH="$(dpkg --print-architecture)"
-DIST="dist"; STAGE="$(mktemp -d)"
+# shellcheck source=/dev/null
+. /etc/os-release
+DISTRO="${ID}${VERSION_ID}"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
 PYDEPS="opt/type-as-you-speak/pydeps"
-
-echo "==> building type-as-you-speak $VER for $ARCH"
-
-mkdir -p "$STAGE/usr/bin" "$STAGE/$PYDEPS" \
-         "$STAGE/usr/share/applications" "$STAGE/usr/share/metainfo" \
-         "$STAGE/usr/share/doc/type-as-you-speak"
-
-echo "==> collecting Python deps + app into $PYDEPS"
-"$PY" -m pip install \
-  --no-cache-dir --no-build-isolation --no-warn-script-location \
-  --ignore-installed --target "$STAGE/$PYDEPS" .
-
-echo "==> launcher + data files"
-cat > "$STAGE/usr/bin/tays" <<'EOF'
-#!/usr/bin/env python3
-import sys, os
+WHEELHOUSE="${1:-dist/wheelhouse}"
+if [ ! -d "$WHEELHOUSE" ]; then
+  bash scripts/prepare-wheelhouse.sh "$WHEELHOUSE"
+fi
+mkdir -p "$STAGE/$PYDEPS" "$STAGE/usr/bin" "$STAGE/usr/share/doc/type-as-you-speak"
+"$PY" -m pip install --no-compile --no-index --no-deps --require-hashes \
+  --target "$STAGE/$PYDEPS" --find-links "$WHEELHOUSE" -r "$WHEELHOUSE/requirements.txt"
+shopt -s nullglob
+wheels=("$WHEELHOUSE"/type_as_you_speak-*.whl)
+[ "${#wheels[@]}" -eq 1 ] || { echo 'Expected exactly one application wheel' >&2; exit 1; }
+"$PY" -m pip install --no-compile --no-index --no-deps --target "$STAGE/$PYDEPS" "${wheels[0]}"
+rm -rf "${STAGE:?}/${PYDEPS:?}/bin"
+"$PY" scripts/audit.py "$STAGE/$PYDEPS" --output "$STAGE/usr/share/doc/type-as-you-speak/dependency-audit.json"
+PYTHONPATH="$STAGE/$PYDEPS" "$PY" -c 'import numpy, onnxruntime, faster_whisper; from PySide6 import QtWidgets; from type_as_you_speak.cli import main; main(["--version"])'
+bash packaging/build-ydotool.sh "$STAGE"
+cat > "$STAGE/usr/bin/tays" <<EOF
+#!/usr/bin/python${PYVER}
+import os
+import sys
+os.environ["PATH"] = "/opt/type-as-you-speak/bin:" + os.environ.get("PATH", "/usr/bin:/bin")
 sys.path.insert(0, "/opt/type-as-you-speak/pydeps")
 from type_as_you_speak.cli import main
 sys.exit(main())
 EOF
 chmod 755 "$STAGE/usr/bin/tays"
-
-install -m644 data/type-as-you-speak.desktop \
-  "$STAGE/usr/share/applications/type-as-you-speak.desktop"
-install -m644 data/type-as-you-speak.metainfo.xml \
-  "$STAGE/usr/share/metainfo/type-as-you-speak.metainfo.xml"
+install -Dm644 data/type-as-you-speak.desktop "$STAGE/usr/share/applications/type-as-you-speak.desktop"
+install -Dm644 data/type-as-you-speak.metainfo.xml "$STAGE/usr/share/metainfo/type-as-you-speak.metainfo.xml"
 for size in 512 256 128 64 32; do
-  mkdir -p "$STAGE/usr/share/icons/hicolor/${size}x${size}/apps"
-  install -m644 "data/icons/type-as-you-speak-$size.png" \
-    "$STAGE/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png"
+  install -Dm644 "data/icons/type-as-you-speak-$size.png" "$STAGE/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png"
 done
 install -m644 README.md LICENSE "$STAGE/usr/share/doc/type-as-you-speak/"
-
-echo "==> control"
-install -d "$STAGE/DEBIAN"
-INSTALLED_SIZE=$(( $(du -sk "$STAGE" | cut -f1) + 1 ))
-sed -e "/^Package:/a Version: $VER\nArchitecture: $ARCH\nInstalled-Size: $INSTALLED_SIZE" \
-    packaging/deb/control > "$STAGE/DEBIAN/control"
-
-echo "==> deb"
-mkdir -p "$DIST"
-OUT="$DIST/type-as-you-speak_${VER}_${ARCH}.deb"
-rm -f "$OUT"
+mkdir -p "$STAGE/DEBIAN" dist
+INSTALLED_SIZE="$(du -sk "$STAGE" | cut -f1)"
+{
+  printf 'Version: %s\nArchitecture: %s\nInstalled-Size: %s\n' "$VER" "$ARCH" "$INSTALLED_SIZE"
+  sed "s/@PYTHON@/python${PYVER}/g" packaging/deb/control
+} > "$STAGE/DEBIAN/control"
+OUT="dist/type-as-you-speak_${VER}_${DISTRO}_${ARCH}.deb"
 dpkg-deb --build --root-owner-group "$STAGE" "$OUT"
-rm -rf "$STAGE"
-echo "==> wrote $OUT"
+echo "Built $OUT (requires Python $PYVER on $DISTRO)"
