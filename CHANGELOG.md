@@ -9,7 +9,8 @@ and the project follows [Semantic Versioning](https://semver.org/).
 ### Added
 - **Settings GUI — `tays gui`** (optional `gui` extra: PySide6 + tomlkit):
   a window to pick models and options instead of editing TOML — General
-  tab (Model & device, Background audio, Corrections) and Advanced tab
+  tab (Model & device, Background audio), Corrections tab (hotwords +
+  hallucination tails, each inline and file-backed), and Advanced tab
   (Typing & pacing, Decode stability). Model picker marks each model
   *downloaded* / *not downloaded* with an on-demand **Download** button;
   device is a radio choice (Auto / GPU-CUDA / GPU-ROCm(AMD) / CPU — vendor
@@ -35,8 +36,58 @@ and the project follows [Semantic Versioning](https://semver.org/).
   `DICTATE_HOTWORDS_FILE` overrides.)
 - **CPU fallback model `small.en`:** when the GPU decode is unstable, the
   session continues on CPU `small.en` int8 (was `base.en`).
+- **KDE Plasma panel applet** (`org.iller7.typeasyspeak`): an always-present
+  mic icon in the panel — **grey** while stopped, **red** while a dictation
+  session is live. Left-click pops up the status (model + actual GPU) with
+  Start/Stop and Settings; right-click gives the full menu (Start/Stop,
+  Settings → `tays gui`, Status, About). Runs entirely inside `plasmashell`
+  — no extra process, no daemon — driving `tays status --json` /
+  `tays toggle` as short-lived commands and finding `tays` in the usual
+  install locations. Shipped at `applet/` in the repo; install steps in the
+  README ("Panel applet (KDE Plasma)").
+- **`hallucination_tails_file`:** a file of extra tail phrases (one per
+  line, `#` comments allowed), combined with the inline
+  `hallucination_tails` list and deduped — the shareable-list treatment of
+  `hotwords_file`, mirrored for tails (`DICTATE_TAILS_FILE` override).
+- **Corrections tab in the settings GUI:** hotwords and hallucination tails
+  get their own tab next to General — each with the inline list plus the
+  file path, and the **file's contents in an editable area below**: loaded
+  when opened, written back on **Save** (created if it doesn't exist yet).
+- **Model ↔ language sync in the settings GUI:** with a non-English language
+  selected, English-only `.en` models are marked "English only"; picking
+  one points at (or auto-switches to) its multilingual twin
+  (tiny/base/small/medium) when that is already downloaded. Dictating, say,
+  French into `small.en` is the top cause of degraded recognition — this
+  surfaces and fixes it.
+- **Settings GUI status-line sync:** while a session is running on one
+  device and the config selects another, the status line appends
+  "(configured: … — applies to the next session)" — the panel and the radio
+  buttons can no longer look out of sync.
+
+### Changed
+- **Settings GUI device radios gated on the installed CTranslate2 build:**
+  a vendor option (CUDA / ROCm) is enabled only when the installed build
+  can actually use that GPU — hardware presence alone no longer enables it.
+  (An AMD iGPU with the CUDA build now greys out ROCm and explains why in
+  the tooltip.)
+- **Settings GUI i18n-ready:** all window strings route through
+  `QObject.tr()` (and the applet uses QML `i18n()`), ready for `.ts`/`.qm`
+  translations.
 
 ### Fixed
+- **Dictation duplicated everything (two sessions at once):** `tays start`
+  had no single-instance guard — a second `start` while a session ran
+  launched a second engine and overwrote the pidfile (the first became an
+  unstoppable zombie); both listened on the same mic and both typed into
+  the same window, so every phrase landed 2–3×. `start` now refuses when a
+  session is already running ("already running (pid N) — use 'tays stop'
+  first") and the engine logs its own pid so log lines are attributable.
+  (`toggle` was already safe.)
+- **Applet blank icon + empty popup:** the QML called `Qt.env("HOME")`,
+  which does not exist in QML — the resulting TypeError killed the icon
+  binding and the popup at once. Command paths now use `$HOME` shell
+  expansion (the `executable` data source runs commands through a shell),
+  verified under plasmashell's own environment.
 - **GUI model download result clobbered:** the status timer re-consumed the
   finished download every tick, so the true outcome (e.g. a successful
   "Downloaded ✓") was overwritten by "unknown error" a second later. The

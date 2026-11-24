@@ -89,6 +89,32 @@ def _log(msg):
     print(f"[live] {msg}", file=sys.stderr, flush=True)
 
 
+def load_tail_lines(inline_list, path):
+    """Combine the inline `hallucination_tails` list with an optional file
+    (one tail phrase per line; '#' comments and blank lines ignored).
+    Entries are deduped case-insensitively (first occurrence wins). A
+    missing/unreadable file warns and falls back to the inline list —
+    never crashes a session. Same shape as load_hotwords for the tails."""
+    entries = [str(t).strip() for t in (inline_list or []) if str(t).strip()]
+    if path:
+        p = os.path.expanduser(str(path))
+        try:
+            with open(p, encoding="utf-8") as f:
+                for line in f:
+                    e = line.split("#", 1)[0].strip()
+                    if e:
+                        entries.append(e)
+        except OSError as e:
+            _log(f"hallucination-tails file {p!r} unreadable ({e}) — inline list only")
+    seen, out = set(), []
+    for e in entries:
+        k = e.casefold()
+        if k not in seen:
+            seen.add(k)
+            out.append(e)
+    return out
+
+
 def load_hotwords(inline, path):
     """Combine the inline `hotwords` string with an optional hotwords file
     (one word or phrase per line; '#' comments and blank lines ignored).
@@ -153,7 +179,9 @@ CHUNK_BYTES = int(CHUNK_SAMPLES) * 4
 # Whisper "end-of-speech" hallucinations: on trailing silence it emits a stock
 # closing line (or re-emits your last phrase). These trailing phrases are
 # stripped before typing (see clean_hallucinations). Edit in your config file.
-WHISPER_HALLUCINATION_TAILS = list(CFG["hallucination_tails"])
+WHISPER_HALLUCINATION_TAILS = load_tail_lines(
+    list(CFG["hallucination_tails"]),
+    str(CFG.get("hallucination_tails_file", "")).strip())
 # -----------------------------------------------------------------------------
 
 
@@ -623,6 +651,7 @@ def run_session(reader, t0):
     model = build_model()
     _write_live_state()   # status/GUI/applet can now report the exact device
     vad = get_vad()
+    _log(f"engine pid={os.getpid()}")
 
     def warmup():
         try:
