@@ -20,6 +20,6 @@ ENV DEBIAN_FRONTEND=noninteractive QT_QPA_PLATFORM=offscreen
 COPY --from=build /work/dist/*.deb /packages/
 RUN apt-get update && apt-get install -y --no-install-recommends /packages/*.deb && \
     tays --version && tays --help && \
-    /usr/bin/python3 -c 'import sys; sys.path.insert(0,"/opt/type-as-you-speak/pydeps"); import numpy, onnxruntime, faster_whisper; from PySide6.QtWidgets import QApplication; app=QApplication([])'
+    PY="$(sed -n '1s/^#!//p' /usr/bin/tays)" && "$PY" -c 'import sys; sys.path.insert(0,"/opt/type-as-you-speak/pydeps"); import numpy, onnxruntime, faster_whisper; from PySide6.QtWidgets import QApplication; app=QApplication([])'
 FROM scratch AS artifacts
 COPY --from=smoke /packages/ /
