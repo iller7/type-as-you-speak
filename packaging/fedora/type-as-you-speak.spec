@@ -9,6 +9,10 @@ License:        MIT
 URL:            https://github.com/iller7/type-as-you-speak
 Source0:        type_as_you_speak-%{version}.tar.gz
 Source1:        wheelhouse.tar.gz
+# Wheel-private DSOs and optional Qt plugins are not system RPM capabilities.
+# Their OS dependencies are declared below and checked in a clean runtime image.
+%global __requires_exclude_from ^/opt/%{name}/pydeps/.*$
+%global __provides_exclude_from ^/opt/%{name}/pydeps/.*$
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-rpm-macros

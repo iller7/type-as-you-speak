@@ -15,9 +15,11 @@ ENV PATH="/work/.venv/bin:/tools/bin:${PATH}"
 RUN uv run --locked pytest && uv run --locked python -m build --no-isolation && uv run --locked twine check dist/*.whl dist/*.tar.gz
 RUN desktop-file-validate data/type-as-you-speak.desktop && appstreamcli validate --no-net data/type-as-you-speak.metainfo.xml
 RUN bash packaging/deb/build-deb.sh
-RUN apt-get update && apt-get install -y --no-install-recommends ./dist/*.deb && \
+FROM ${BASE_IMAGE} AS smoke
+ENV DEBIAN_FRONTEND=noninteractive QT_QPA_PLATFORM=offscreen
+COPY --from=build /work/dist/*.deb /packages/
+RUN apt-get update && apt-get install -y --no-install-recommends /packages/*.deb && \
     tays --version && tays --help && \
-    /usr/bin/python3 -c 'import sys; sys.path.insert(0,"/opt/type-as-you-speak/pydeps"); import numpy, onnxruntime, faster_whisper; from PySide6.QtWidgets import QApplication; app=QApplication([])' && \
-    mkdir /out && cp dist/*.deb /out/
+    /usr/bin/python3 -c 'import sys; sys.path.insert(0,"/opt/type-as-you-speak/pydeps"); import numpy, onnxruntime, faster_whisper; from PySide6.QtWidgets import QApplication; app=QApplication([])'
 FROM scratch AS artifacts
-COPY --from=build /out/ /
+COPY --from=smoke /packages/ /

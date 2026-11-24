@@ -14,9 +14,14 @@ RUN uv run --locked pytest && uv run --locked python -m build --no-isolation && 
 RUN mkdir -p /root/rpmbuild/SOURCES && cp dist/*.tar.gz /root/rpmbuild/SOURCES/ && \
     tar -czf /root/rpmbuild/SOURCES/wheelhouse.tar.gz -C dist/wheelhouse .
 RUN rpmbuild -ba packaging/fedora/type-as-you-speak.spec
-RUN dnf install -y /root/rpmbuild/RPMS/*/*.rpm && tays --version && tays --help && \
-    python scripts/audit.py /opt/type-as-you-speak/pydeps && \
-    /usr/bin/python3 -c 'import sys; sys.path.insert(0,"/opt/type-as-you-speak/pydeps"); from PySide6.QtWidgets import QApplication; app=QApplication([])' && \
+FROM fedora:44@sha256:15da97ed9aa94dd3d92c3925eb89520f6c80e07ea7ee24cba848d1f8b6912b3e AS smoke
+ENV QT_QPA_PLATFORM=offscreen
+COPY --from=build /root/rpmbuild/RPMS/ /packages/
+RUN dnf install -y /packages/*/*.rpm && tays --version && tays --help && \
+    /usr/bin/python3 -c 'import sys; sys.path.insert(0,"/opt/type-as-you-speak/pydeps"); import numpy, onnxruntime, faster_whisper; from PySide6.QtWidgets import QApplication; app=QApplication([])'
+FROM build AS verify
+COPY --from=smoke /opt/type-as-you-speak/pydeps /installed-pydeps
+RUN python scripts/audit.py /installed-pydeps && \
     mkdir /out && cp /root/rpmbuild/RPMS/*/*.rpm /root/rpmbuild/SRPMS/*.rpm /out/
 FROM scratch AS artifacts
-COPY --from=build /out/ /
+COPY --from=verify /out/ /
