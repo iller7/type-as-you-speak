@@ -361,6 +361,32 @@ def _gpu_name() -> str | None:
     return None
 
 
+def _cpu_name() -> str | None:
+    """Human-readable CPU name (e.g. 'AMD Ryzen 9 9950X') — for the
+    descriptive status line when the session runs on the CPU, mirroring
+    _gpu_name() on the GPU side."""
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if line.lower().startswith("model name"):
+                    name = line.split(":", 1)[1].strip()
+                    if name:
+                        return name
+    except OSError:
+        pass
+    try:
+        out = subprocess.run(["lscpu"], capture_output=True, text=True,
+                             timeout=5).stdout
+        for line in out.splitlines():
+            if line.lower().startswith("model name"):
+                name = line.split(":", 1)[1].strip()
+                if name:
+                    return name
+    except Exception:
+        pass
+    return None
+
+
 def _read_live_state(pid: int | None) -> dict | None:
     """What the running session actually loaded (model/device) — engine.py
     writes it; only trusted when its pid matches the live one."""
@@ -398,6 +424,9 @@ def _status_dict() -> dict:
                 gpu = _gpu_name()
                 if gpu:
                     st["gpu"] = gpu
+    cpu = _cpu_name()
+    if cpu:
+        st["cpu"] = cpu
     return st
 
 

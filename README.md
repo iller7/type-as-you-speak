@@ -190,21 +190,27 @@ out of sync) and every config option, on three tabs:
 
 Details:
 
-- **Model picker** marks each model *downloaded* / *not downloaded*; the
-  **Download** button fetches the selected model on demand (it would be
-  fetched at session start anyway — this just makes it visible and safe).
-  With a non-English language selected, the English-only `.en` models are
-  marked "English only", and if you switch to such a model's multilingual
-  twin (e.g. `small.en` → `small`) while it is already downloaded, the
-  picker switches to it automatically — otherwise it points at the twin.
+- **Language** is first (a dropdown with flags and native names —
+  🇬🇧 English, 🇫🇷 Français, … — editable for the long tail): it decides
+  what the model slider means.
+- **Model size** is a **notched slider**, smallest → largest (tiny → base →
+  small → medium → large-v3-turbo → large-v3). With English (or Auto-detect)
+  the notches mean the English-only `.en` models (fastest and most accurate
+  for English); with any other language they automatically mean the
+  multilingual model of the same size. The line under the slider shows the
+  current model as *downloaded* / *not downloaded*, and the **Download**
+  button fetches the model at the current notch (it would be fetched at
+  session start anyway — this just makes it visible and safe). A model set
+  directly in the config that isn't on the slider is shown as-is, with a
+  note.
 - **Device** is a radio choice (Auto / GPU-CUDA / GPU-ROCm(AMD) / CPU) —
   each vendor option is enabled only when the *installed CTranslate2 build*
   can actually use that GPU (hardware presence alone isn't enough: an AMD
   iGPU with the CUDA build stays greyed out, with the reason in the
   tooltip). AMD ROCm needs CTranslate2's ROCm wheel (the standard pip
   install is CUDA/CPU only).
-- **Language** is a dropdown with flags and native names
-  (🇬🇧 English, 🇫🇷 Français, … — editable for the long tail).
+- **Background audio** — "Reduce background volume to (% — 0 = mute)"
+  (that quiet-down is the so-called *ducking*) plus the fade time.
 - **Hover any field** and the window's status bar explains what it does in
   plain English (plus a native tooltip).
 
@@ -220,9 +226,10 @@ For an always-present mic icon in your panel — no window, no extra process
 `tays toggle` as short-lived commands):
 
 - **Grey mic icon** while stopped, **red** while the session is live.
-- **Left-click** — status (model + actual GPU) with Start/Stop and Settings;
-  if an action fails, the popup says why instead of doing nothing.
-- **Right-click** — Start/Stop, Settings (opens `tays gui`), Status, About.
+- **Left-click** — status (model + where it's running — GPU name, or the
+  CPU name on CPU) with Start/Stop and Settings; if an action fails, the
+  popup says why instead of doing nothing.
+- **Right-click** — Start/Stop (flips with the live state), Settings.
 
 Install it (needs the app installed as above — the applet finds `tays` in
 your usual locations; the mic icons go into your icon theme, where Plasma

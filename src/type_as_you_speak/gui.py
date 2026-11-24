@@ -44,7 +44,7 @@ from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox,
     QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QMessageBox, QPushButton, QPlainTextEdit, QRadioButton,
-    QSpinBox, QTabWidget, QVBoxLayout, QWidget,
+    QSpinBox, QSlider, QTabWidget, QVBoxLayout, QWidget,
 )
 
 import tomlkit
@@ -66,14 +66,47 @@ _SPIN_FLOAT = {
     "transcribe_every_s": (0.3, 3.0, 0.1),
 }
 
-# English-only models and their multilingual twins (same family). When a
-# non-English language is picked, the .en choice can't be right.
-MULTILINGUAL_TWINS = {
-    "tiny.en": "tiny",
-    "base.en": "base",
-    "small.en": "small",
-    "medium.en": "medium",
-}
+# Model slider: the standard models, smallest → largest, as notches.
+# Column 0 is the English-only name (used when the language is auto/English),
+# column 1 the multilingual name. large-v3-turbo / large-v3 have no .en
+# twin, so both columns agree. Picking a non-English language flips the
+# current notch to its twin automatically — same size class, right language.
+MODEL_RANKS = [
+    ("tiny.en", "tiny"),
+    ("base.en", "base"),
+    ("small.en", "small"),
+    ("medium.en", "medium"),
+    ("large-v3-turbo", "large-v3-turbo"),
+    ("large-v3", "large-v3"),
+]
+
+
+def _rank_of(model: str) -> int | None:
+    """Slider position for a model name (either language variant)."""
+    m = str(model).strip()
+    for i, (en, ml) in enumerate(MODEL_RANKS):
+        if m in (en, ml):
+            return i
+    return None
+
+
+def _model_name_at(rank: int, lang: str) -> str:
+    en, ml = MODEL_RANKS[rank]
+    return en if lang in ("auto", "en", "") else ml
+
+
+def _model_size(name: str) -> str:
+    """Approximate download size for a model name (the multilingual twins
+    are the same order as their .en siblings)."""
+    for n, size, _note in cli._MODELS:
+        if n == name:
+            return size
+    twin = next((en for en, ml in MODEL_RANKS if ml == name), None)
+    if twin:
+        for n, size, _note in cli._MODELS:
+            if n == twin:
+                return "≈" + size
+    return ""
 
 # Language picker entries: (code stored in config, native name, flag).
 LANGUAGES = [
@@ -156,10 +189,11 @@ def _lang_code(text: str) -> str:
 # detail (if any) comes after the first sentence. Also shown in the window's
 # status bar as you hover (context-sensitive help).
 TIPS = {
-    "model_name": ("Which speech-recognition model to use. Bigger models understand "
-                   "better but are slower and use more memory — pick one marked "
-                   "'downloaded' for everyday use. Note: models ending in .en "
-                   "understand English only."),
+    "model_name": ("How big (and accurate) the speech-recognition model is. "
+                   "Slide right for better accuracy — bigger models are slower "
+                   "and use more memory. When your language isn't English, the "
+                   "notch automatically means the multilingual model of that "
+                   "size, so you're covered."),
     "device": ("Where the thinking happens. Auto picks the best option: your "
                "graphics card (GPU) if it can hold the model, otherwise the main "
                "processor (CPU). The GPU is faster; the CPU is calmer on the "
@@ -186,10 +220,11 @@ TIPS = {
                            "while you keep talking, so it can adjust the "
                            "wording as the sentence grows."),
     "duck_volume_pct": ("How quiet the music and other sound get while you're "
-                        "talking, as a percentage of the volume. 0 = turn it "
-                        "off completely."),
-    "duck_ramp_ms": ("How gently the sound fades down and back up (in "
-                     "milliseconds). Larger = smoother, less noticeable."),
+                        "talking, as a percentage of the original volume: 100 = "
+                        "don't touch it, 50 = half as loud, 0 = completely off. "
+                        "(This quiet-down is called 'ducking'.)"),
+    "duck_ramp_ms": ("How gently the background sound fades down and back up, "
+                     "in milliseconds. Larger = smoother and less noticeable."),
     "no_repeat_ngram_size": ("A safety switch that stops the model repeating "
                              "itself when the GPU is overloaded. Leave it on "
                              "(2); 0 turns it off."),
@@ -296,11 +331,6 @@ def _gpu_count() -> int | None:
         return int(ctranslate2.get_cuda_device_count())
     except Exception:
         return None
-
-
-def _model_of(text: str) -> str:
-    """'small.en  (484 MB) — downloaded' -> 'small.en'."""
-    return text.split("  (")[0].split(" — ")[0].split(" · ")[0].strip()
 
 
 class SettingsWindow(QMainWindow):
@@ -438,66 +468,53 @@ class SettingsWindow(QMainWindow):
         w.setFixedHeight(120)
         return w
 
-    # ---- model picker: availability + download --------------------------------
+    # ---- model picker: notched slider + availability + download ----------------
+    def _slider_moved(self, _value: int) -> None:
+        """A notch was picked: it is one of the standard models again."""
+        self.model_custom = None
+        self._refresh_model_label()
+        self._update_download_btn()
+
     def _selected_model(self) -> str:
-        return _model_of(self.model_combo.currentText())
+        if self.model_custom is not None:
+            return self.model_custom
+        return _model_name_at(self.model_slider.value(), self._selected_lang())
 
     def _selected_lang(self) -> str:
         return _lang_code(self.lang_combo.currentText())
 
-    def _en_only_marked(self) -> bool:
-        """True when a specific non-English language is active — .en models
-        are the wrong tools then, so they get an explicit mark."""
-        return self._selected_lang() not in ("auto", "en", "")
-
-    def _refresh_model_marks(self) -> None:
-        """Rebuild the model list with downloaded / not-downloaded marks (and
-        an 'English only' mark when a non-English language is selected)."""
-        cur = self._selected_model()
-        marked = self._en_only_marked()
-        self.model_combo.blockSignals(True)
-        self.model_combo.clear()
-        for name, size, _note in cli._MODELS:
-            mark = " — downloaded" if _model_available(name) else " — not downloaded"
-            if marked and name.endswith(".en"):
-                mark += " · English only"
-            self.model_combo.addItem(f"{name}  ({size}){mark}")
-        if cur:
-            texts = [self.model_combo.itemText(i) for i in range(self.model_combo.count())]
-            if not any(_model_of(t) == cur for t in texts):
-                mark = " — downloaded" if _model_available(cur) else " — not downloaded"
-                if marked and cur.endswith(".en"):
-                    mark += " · English only"
-                self.model_combo.addItem(f"{cur}{mark}")
-            for i in range(self.model_combo.count()):
-                if _model_of(self.model_combo.itemText(i)) == cur:
-                    self.model_combo.setCurrentIndex(i)
-                    break
-        self.model_combo.blockSignals(False)
-        self._update_download_btn()
+    def _refresh_model_label(self) -> None:
+        """The line under the slider: the model name for the current notch
+        (language-aware) plus its download state."""
+        if self.model_custom is not None:
+            self.model_label.setText(self.tr(
+                "Currently set to '{m}' (not on this slider — moving the slider "
+                "switches to the standard models).").format(m=self.model_custom))
+            return
+        name = _model_name_at(self.model_slider.value(), self._selected_lang())
+        size = _model_size(name)
+        base = name + (f"  ({size})" if size else "")
+        if _model_available(name):
+            self.model_label.setText(base + " — " + self.tr("downloaded ✓"))
+        else:
+            self.model_label.setText(
+                base + " — " + self.tr("not downloaded (press Download)"))
 
     def _model_lang_sync(self) -> None:
-        """Picked a non-English language while an .en model is selected: the
-        .en model can only transcribe English. Switch to the multilingual
-        twin when it's already downloaded (no surprise fetch), otherwise
-        point at it — and mark the list either way."""
-        self._refresh_model_marks()
+        """Language changed: the current notch now stands for its
+        multilingual twin (same size class, right language) — just say so
+        and refresh the label/button."""
         lang = self._selected_lang()
-        model = self._selected_model()
-        if lang in ("auto", "en", "") or model not in MULTILINGUAL_TWINS:
-            return
-        twin = MULTILINGUAL_TWINS[model]
-        if _model_available(twin):
-            self.model_combo.setCurrentText(twin)
+        en, ml = MODEL_RANKS[self.model_slider.value()]
+        if lang not in ("auto", "en", "") and en != ml:
+            self.model_custom = None
             native = next((n for c, n, _f in LANGUAGES if c == lang), lang)
+            state = self.tr("downloaded") if _model_available(ml) \
+                else self.tr("not downloaded yet — press Download")
             self.statusBar().showMessage(self.tr(
-                "{m} is English-only — switched to {t} for {n}.").format(
-                m=model, t=twin, n=native))
-        else:
-            native = next((n for c, n, _f in LANGUAGES if c == lang), lang)
-            self.statusBar().showMessage(self.tr(
-                "{m} is English-only — {t} suits {n} better (Download it or "
-                "pick it from the list).").format(m=model, t=twin, n=native))
+                "{e} is English-only — using {m} for {n} ({state}).").format(
+                e=en, m=ml, n=native, state=state))
+        self._refresh_model_label()
         self._update_download_btn()
 
     def _update_download_btn(self) -> None:
@@ -570,26 +587,42 @@ class SettingsWindow(QMainWindow):
         g = QGroupBox(self.tr("Model & device"))
         f = QFormLayout(g)
 
-        self.model_combo = QComboBox()
-        self.model_combo.setEditable(True)
-        # keep the "English only" / downloaded marks in sync with whichever
-        # of language/model is changed last
-        self.model_combo.currentTextChanged.connect(
-            lambda _t: self._refresh_model_marks())
-        self._register(self.model_combo, TIPS["model_name"])
-        self._fields["model_name"] = self.model_combo
+        # language first: it decides which model family the slider means
+        # (.en vs multilingual)
+        self.lang_combo = QComboBox()
+        self.lang_combo.setEditable(True)
+        self._register(self.lang_combo, TIPS["language"])
+        self.lang_combo.addItems(
+            ["🌐 Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
+             for c, native, flag in LANGUAGES])
+        self.lang_combo.currentTextChanged.connect(
+            lambda _t: (self._update_download_btn(), self._model_lang_sync()))
+        self._fields["language"] = self.lang_combo
+        f.addRow(self.tr("Language:"), self.lang_combo)
+
+        # model: a notched slider, smallest → largest
+        self.model_slider = QSlider(Qt.Orientation.Horizontal)
+        self.model_slider.setRange(0, len(MODEL_RANKS) - 1)
+        self.model_slider.setPageStep(1)
+        self.model_slider.setSingleStep(1)
+        self.model_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.model_slider.setTracking(False)
+        self.model_slider.valueChanged.connect(self._slider_moved)
+        self.model_custom: str | None = None   # set: a model not on the slider
+        self._register(self.model_slider, TIPS["model_name"])
+        self._fields["model_name"] = self.model_slider
 
         self.dl_btn = QPushButton(self.tr("Download"))
         self.dl_btn.setToolTip(self.tr(
-            "Download the selected model (stored in the Hugging Face cache; "
-            "the session would also fetch it on first use)."))
+            "Download the model at the current notch (stored in the Hugging "
+            "Face cache; a session would also fetch it on first use)."))
         self.dl_btn.clicked.connect(self._download_clicked)
         self.model_label = QLabel("")
         self.model_label.setWordWrap(True)
         mh = QHBoxLayout()
-        mh.addWidget(self.model_combo, 1)
+        mh.addWidget(self.model_slider, 1)
         mh.addWidget(self.dl_btn)
-        f.addRow(self.tr("Model:"), mh)
+        f.addRow(self.tr("Model size:"), mh)
         f.addRow("", self.model_label)
 
         # device: radio buttons. A vendor option is enabled ONLY when the
@@ -637,20 +670,10 @@ class SettingsWindow(QMainWindow):
         self._dev_btns[target].setChecked(True)
         f.addRow(self.tr("Device:"), dev_row)
 
-        self.lang_combo = QComboBox()
-        self.lang_combo.setEditable(True)
-        self._register(self.lang_combo, TIPS["language"])
-        self.lang_combo.addItems(
-            ["🌐 Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
-             for c, native, flag in LANGUAGES])
-        self.lang_combo.currentTextChanged.connect(
-            lambda _t: (self._update_download_btn(), self._model_lang_sync()))
-        self._fields["language"] = self.lang_combo
-        f.addRow(self.tr("Language:"), self.lang_combo)
-
         f.addRow(self.tr("CPU threads:"), self._spin("cpu_threads"))
 
-        self._refresh_model_marks()
+        self._refresh_model_label()
+        self._update_download_btn()
         return g
 
     def _timing_group(self) -> QGroupBox:
@@ -664,7 +687,8 @@ class SettingsWindow(QMainWindow):
     def _audio_group(self) -> QGroupBox:
         g = QGroupBox(self.tr("Background audio while dictating"))
         f = QFormLayout(g)
-        f.addRow(self.tr("Duck level (%, 0 = hard mute):"), self._spin("duck_volume_pct"))
+        f.addRow(self.tr("Reduce background volume to (% — 0 = mute):"),
+                 self._spin("duck_volume_pct"))
         f.addRow(self.tr("Fade time (ms):"), self._spin("duck_ramp_ms"))
         return g
 
@@ -773,10 +797,10 @@ class SettingsWindow(QMainWindow):
 
     # ---- values <-> widgets ----------------------------------------------------
     def _value_for(self, key: str, widget: QWidget):
+        if isinstance(widget, QSlider):
+            return self._selected_model()
         if isinstance(widget, QComboBox):
             text = widget.currentText().strip()
-            if key == "model_name":
-                return _model_of(text)
             if key == "language":
                 return _lang_code(text)
             return text
@@ -791,6 +815,14 @@ class SettingsWindow(QMainWindow):
         return widget.text().strip()
 
     def _set_widget(self, key: str, widget: QWidget, value) -> None:
+        if isinstance(widget, QSlider):
+            rank = _rank_of(str(value))
+            widget.setValue(rank if rank is not None else len(MODEL_RANKS) // 2)
+            # set AFTER setValue: the valueChanged handler clears model_custom,
+            # so the custom note would be wiped immediately otherwise
+            self.model_custom = None if rank is not None else str(value)
+            self._refresh_model_label()
+            return
         if isinstance(widget, QComboBox):
             if key == "model_name":
                 widget.setEditText(str(value))
@@ -842,7 +874,7 @@ class SettingsWindow(QMainWindow):
                 self._set_widget(key, widget, value)
         self._set_device(str(cfg.get("device", "auto")))
         self._load_areas()
-        self._refresh_model_marks()
+        self._refresh_model_label()
         self.statusBar().showMessage(self.tr("Settings reloaded from config."))
 
     # ---- save / revert / open ---------------------------------------------------
@@ -883,11 +915,25 @@ class SettingsWindow(QMainWindow):
         # Write the list files (creating them if needed).
         try:
             for target, lines in ((hw_target, hw_lines), (tl_target, tl_lines)):
-                if target is not None:
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_text(
-                        "\n".join(lines) + ("\n" if lines else ""),
-                        encoding="utf-8")
+                if target is None:
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                body = "\n".join(lines) + ("\n" if lines else "")
+                if target.is_file():
+                    # Keep the file's header comments (what the file is for,
+                    # how to read it) — a GUI Save must not strip them.
+                    try:
+                        header = []
+                        for l in target.read_text(encoding="utf-8").splitlines():
+                            if l.strip().startswith("#") or not l.strip():
+                                header.append(l)
+                            else:
+                                break
+                        if header:
+                            body = "\n".join(header) + "\n" + body
+                    except OSError:
+                        pass
+                target.write_text(body, encoding="utf-8")
         except Exception as e:
             QMessageBox.warning(self, self.tr("Save"),
                                 self.tr("Config saved, but a list file could not "
@@ -920,7 +966,8 @@ class SettingsWindow(QMainWindow):
             if gpu:
                 on = f"{gpu} ({dev.upper()})"
             elif dev == "cpu":
-                on = self.tr("CPU (int8)")
+                cpu = st.get("cpu")
+                on = f"{cpu} (CPU)" if cpu else self.tr("CPU (int8)")
             else:
                 on = dev.upper()
             line = self.tr("● Listening — {m} on {d} (pid {p})").format(
@@ -932,7 +979,9 @@ class SettingsWindow(QMainWindow):
             if cfg_dev != dev:
                 line += "  " + self.tr("(configured: {c} — applies to the next session)").format(c=cfg_dev)
             return line
-        return self.tr("● Stopped — {m} (device: {d})").format(m=model, d=dev)
+        cpu = st.get("cpu")
+        extra = f" — {cpu}" if cpu and dev in ("cpu", "auto") else ""
+        return self.tr("● Stopped — {m} (device: {d}{x})").format(m=model, d=dev, x=extra)
 
     def _update_status(self) -> None:
         # model download progress (background thread)
@@ -953,7 +1002,7 @@ class SettingsWindow(QMainWindow):
                 self.model_label.setText(
                     self.tr("Downloaded {n} ✓ — ready to use").format(n=self._dl_name)
                     if ok else self.tr("Download failed: {e}").format(e=msg))
-                self._refresh_model_marks()
+                self._refresh_model_label()
         try:
             p = self._tays("status", "--json")
             st = json.loads(p.stdout)
@@ -978,6 +1027,8 @@ class SettingsWindow(QMainWindow):
 def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     win = SettingsWindow()
-    win.resize(720, 780)
+    # Size the window to its content — with the compact tabs a fixed size
+    # leaves an empty band at the bottom.
+    win.adjustSize()
     win.show()
     return app.exec()
