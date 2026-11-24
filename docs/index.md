@@ -20,6 +20,7 @@ Recognition runs locally after the initial model download. No cloud LLM provider
 | Set shortcuts, dictate or use the settings window | [Usage](usage.md)                                                                                                                                        |
 | Select models, language or compute device         | [Configuration](configuration.md)                                                                                                                        |
 | Diagnose microphone, input or startup failures    | [Troubleshooting](troubleshooting.md)                                                                                                                    |
+| Check automated coverage and platform targets     | [Testing matrix](testing.md)                                                                                                                             |
 | Understand the engine                             | [Architecture](architecture.md)                                                                                                                          |
 | Contribute or see what is next                    | [Contributing](https://github.com/iller7/type-as-you-speak/blob/master/CONTRIBUTING.md) and [Issues](https://github.com/iller7/type-as-you-speak/issues) |
 
