@@ -514,13 +514,17 @@ class AudioReader:
         self._eof = True
 
     def read_chunk(self, timeout_s=1.0):
-        """Return CHUNK_BYTES of audio (as numpy float32) or None at end."""
+        """Return up to CHUNK_BYTES of float32 audio, or None at end."""
         deadline = time.time() + timeout_s
         while True:
             with self._lock:
-                if len(self._buf) >= CHUNK_BYTES:
-                    data = bytes(self._buf[:CHUNK_BYTES])
-                    del self._buf[:CHUNK_BYTES]
+                ended = self._thread is not None and not self._thread.is_alive()
+                if len(self._buf) >= CHUNK_BYTES or (ended and self._buf):
+                    count = min(len(self._buf), CHUNK_BYTES)
+                    if count % 4:
+                        raise ValueError("Incomplete float32 audio frame at end of source")
+                    data = bytes(self._buf[:count])
+                    del self._buf[:count]
                 else:
                     data = None
             if data is not None:
@@ -688,6 +692,8 @@ def run_session(reader, t0):
             from faster_whisper import WhisperModel
             _cpu_fallback[0] = WhisperModel("small.en", device="cpu",
                                             compute_type="int8")
+            RUNTIME.update(model="small.en", device="cpu")
+            _write_live_state()
             _log(f"{reason} — cpu small.en for the rest of this session")
 
     def transcribe(audio, prompt):
@@ -708,7 +714,9 @@ def run_session(reader, t0):
         if _cpu_fallback[0] is not None:
             return _cpu_fallback[0].transcribe(audio, **kwargs)
         try:
-            return model.transcribe(audio, **kwargs)
+            segments, info = model.transcribe(audio, **kwargs)
+            # Inference runs when the segment generator is consumed.
+            return list(segments), info
         except Exception:
             engage_cpu_fallback("GPU transcribe failed")
             return _cpu_fallback[0].transcribe(audio, **kwargs)
