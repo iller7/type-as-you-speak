@@ -42,6 +42,8 @@ jobs:
   tests:
     env:
       UV_PYTHON: ${{ matrix.python }}
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      HF_HUB_DISABLE_XET: "1"
     name: tests (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -79,6 +81,17 @@ jobs:
         run: python -c "import platform; print(platform.platform()); print(platform.machine()); print(platform.python_version())"
       - run: uv sync --locked --extra gui
       - run: uv run --locked pytest
+      - name: Prepare pinned public recognition model
+        if: matrix.python == '3.14'
+        env:
+          TAYS_TEST_MODEL_DIR: ${{ runner.temp }}/tays-recognition-model
+        run: uv run --locked python scripts/prepare-test-model.py
+      - name: Verify offline CPU recognition
+        if: matrix.python == '3.14'
+        env:
+          TAYS_TEST_MODEL_DIR: ${{ runner.temp }}/tays-recognition-model
+          HF_HUB_OFFLINE: "1"
+        run: uv run --locked pytest -m recognition tests/test_recognition.py -q -s
       - name: Build and test the installed wheel
         shell: bash
         run: |
