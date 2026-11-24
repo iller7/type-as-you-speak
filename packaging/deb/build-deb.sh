@@ -31,7 +31,7 @@ cat > "$STAGE/usr/bin/tays" <<EOF
 #!/usr/bin/python${PYVER}
 import os
 import sys
-os.environ["PATH"] = os.environ.get("PATH", "/usr/bin:/bin") + ":/opt/type-as-you-speak/bin"
+os.environ["PATH"] = "/opt/type-as-you-speak/bin:" + os.environ.get("PATH", "/usr/bin:/bin")
 sys.path.insert(0, "/opt/type-as-you-speak/pydeps")
 from type_as_you_speak.cli import main
 sys.exit(main())
