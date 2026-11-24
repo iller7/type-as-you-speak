@@ -1,0 +1,28 @@
+{
+  "model": {
+    "repo_id": "Systran/faster-whisper-tiny.en",
+    "revision": "0d3d19a32d3338f10357c0889762bd8d64bbdeba",
+    "license": "MIT",
+    "files": {
+      "config.json": "14b1b421a90349bc551b881461426b561a874049cb9e4c4864f2ca384f6a7cc5",
+      "model.bin": "1a5afae06a4db91c975c9a9d78be5cc110ee4ea022ad57d55492e4550e936b2a",
+      "tokenizer.json": "929c5252409436dce1b38a75d1abbcb5e132d170d8e324e4e04ed915fa2d22df",
+      "vocabulary.txt": "ff77588746d3a2595d32ab5b69ffd7b95ce2441ac57533cb66fc3eb575a115cf",
+      "README.md": "1b7816626bf0548e4b71a467f4112b4592924bc818e3117f19aefcc50ce4b6aa"
+    }
+  },
+  "recording": {
+    "id": "librispeech-test-clean-6930-75918-0000",
+    "path": "6930-75918-0000.wav",
+    "sha256": "103c3f15eb3715ebc6243d142244128a3ac39b6bfae315baa6b8dc4a8be14aa8",
+    "license": "CC-BY-4.0",
+    "reference": "CONCORD RETURNED TO ITS PLACE AMIDST THE TENTS",
+    "max_wer": 0.125,
+    "max_cer": 0.05,
+    "sample_rate": 16000,
+    "source": "https://www.openslr.org/12/",
+    "dataset_card_revision": "71cacbfb7e2354c4226d01e70d77d5fca3d04ba1",
+    "retrieval": "https://datasets-server.huggingface.co/rows?dataset=openslr/librispeech_asr&config=clean&split=test&offset=0&length=2",
+    "source_flac_sha256": "9ce35224156f071ab58eb7feb8a5ceae600f6f9f353da2a6cbf797b6b1ac8a23"
+  }
+}
