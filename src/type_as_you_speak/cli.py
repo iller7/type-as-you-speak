@@ -696,8 +696,8 @@ def cmd_setup(_args) -> int:
         sample = Path(__file__).resolve().parents[2] / "config" / "default.toml"
         try:
             ucfg.parent.mkdir(parents=True, exist_ok=True)
-            ucfg.write_text(sample.read_text() if sample.is_file()
-                            else _sample_config_text())
+            ucfg.write_text(sample.read_text(encoding="utf-8") if sample.is_file()
+                            else _sample_config_text(), encoding="utf-8")
             print(f"\n  [ok  ] wrote sample config -> {ucfg}\n"
                   f"          (edit it to change model, device, lag, phrases, …)")
         except OSError as e:

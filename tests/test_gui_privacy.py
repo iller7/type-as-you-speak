@@ -85,3 +85,24 @@ def test_environment_override_is_visible_and_does_not_overwrite_saved_policy(
     finally:
         overridden._timer.stop()
         overridden.close()
+
+
+def test_settings_use_utf8_even_with_a_windows_style_default_encoding(
+    settings, monkeypatch
+):
+    from pathlib import Path
+    from type_as_you_speak import config
+
+    original_write = Path.write_text
+    target = config.user_config_path()
+
+    def platform_default(path, data, encoding=None, **kwargs):
+        if path == target and encoding is None:
+            encoding = "cp1252"
+        return original_write(path, data, encoding=encoding, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", platform_default)
+    settings._fields["strict_offline"].setChecked(False)
+    settings.save()
+    target.read_bytes().decode("utf-8")
+    assert config.load_config()["strict_offline"] is False

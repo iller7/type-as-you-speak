@@ -915,7 +915,7 @@ class SettingsWindow(QMainWindow):
 
         try:
             if path.is_file():
-                doc = tomlkit.parse(path.read_text())
+                doc = tomlkit.parse(path.read_text(encoding="utf-8"))
             else:
                 # No file yet: seed the full sample (all keys, with comments),
                 # then apply the values below.
@@ -928,7 +928,7 @@ class SettingsWindow(QMainWindow):
             doc["hotwords"] = "" if hw_target else ",".join(hw_lines)
             doc["hallucination_tails"] = [] if tl_target else list(tl_lines)
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(tomlkit.dumps(doc))
+            path.write_text(tomlkit.dumps(doc), encoding="utf-8")
         except Exception as e:
             QMessageBox.critical(self, self.tr("Save failed"),
                                  self.tr("Could not write {p}:").format(p=path) + f"\n{e}")
