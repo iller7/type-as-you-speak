@@ -38,15 +38,21 @@ and the project follows [Semantic Versioning](https://semver.org/).
   session continues on CPU `small.en` int8 (was `base.en`).
 - **KDE Plasma panel applet** (`org.iller7.tays`): an always-present mic
   icon in the panel — **grey** while stopped, **red** while a dictation
-  session is live. Left-click pops up the status (model + actual GPU) with
-  Start/Stop and Settings (failures are shown in the popup instead of doing
-  nothing); right-click gives the full menu (Start/Stop, Settings →
-  `tays gui --detach`, Status, About). Runs entirely inside `plasmashell`
-  — no extra process, no daemon — driving `tays status --json` /
-  `tays toggle` as short-lived commands and finding `tays` in the usual
-  install locations. Shipped at `applet/` in the repo; `./install.sh
-  --applet` installs it plus the mic icons into the icon theme (where
-  Plasma looks for applet icons).
+  session is live. Left-click pops up the compact status (model + where it
+  runs — GPU name, or the CPU name on CPU) with Start/Stop and Settings
+  (failures are shown in the popup instead of doing nothing); right-click
+  is deliberately short: Start/Stop (flips with the live state) + Settings
+  (→ `tays gui --detach`). Runs entirely inside `plasmashell` — no extra
+  process, no daemon — driving `tays status --json` / `tays toggle` as
+  short-lived commands and finding `tays` in the usual install locations.
+  Shipped at `applet/` in the repo; `./install.sh --applet` installs it
+  plus the mic icons into the icon theme (where Plasma looks for applet
+  icons), writing a standard `index.theme` if the hicolor theme is missing
+  one and refreshing the icon cache.
+- **CPU name in the status:** `tays status --json` now includes the CPU
+  model name (`"cpu": "AMD Ryzen 7 9700X …"`, from `/proc/cpuinfo`, `lscpu`
+  fallback) — the settings status line and the panel applet show it when
+  the session runs on the CPU, mirroring the GPU name on GPU.
 - **`tays gui --detach`:** launches the settings window in its own session
   and returns immediately — used by the panel applet so it is never blocked
   for the lifetime of the window.
@@ -63,12 +69,17 @@ and the project follows [Semantic Versioning](https://semver.org/).
   Save. Save writes the list to exactly one place — the file when a path is
   set (the inline copy is cleared so the list isn't duplicated), or the
   settings when no path is set.
-- **Model ↔ language sync in the settings GUI:** with a non-English language
-  selected, English-only `.en` models are marked "English only"; picking
-  one points at (or auto-switches to) its multilingual twin
-  (tiny/base/small/medium) when that is already downloaded. Dictating, say,
-  French into `small.en` is the top cause of degraded recognition — this
-  surfaces and fixes it.
+- **Model as a notched slider in the settings GUI:** the model dropdown is
+  now a slider with one notch per standard model, smallest → largest
+  (tiny → base → small → medium → large-v3-turbo → large-v3), with **the
+  language row first** above it. The language decides the meaning of the
+  notch: English/Auto means the English-only `.en` model; any other
+  language automatically means the multilingual model of the same size —
+  so "dictating French into a `.en` model" (the top cause of degraded
+  recognition) can no longer happen silently. Each notch shows
+  *downloaded* / *not downloaded*; the **Download** button fetches the
+  model at the current notch. A model set in the config that isn't on the
+  slider is shown as-is, with a note.
 - **Settings GUI status-line sync:** while a session is running on one
   device and the config selects another, the status line appends
   "(configured: … — applies to the next session)" — the panel and the radio
@@ -87,6 +98,17 @@ and the project follows [Semantic Versioning](https://semver.org/).
   explanation now starts with what the option does in everyday language
   ("How quiet the music and other sound get while you're talking…"), with
   the technical detail after — no degree required.
+- **Plain-English labels in the settings GUI:** the "duck level" row is now
+  "Reduce background volume to (% — 0 = mute)" (the word *ducking* lives in
+  the hover help, where the technical belongs).
+- **Settings window sized to its content:** with the compact tabs the fixed
+  780 px height left an empty band at the bottom — the window now sizes to
+  the tabs (`adjustSize`).
+- **Saving a list file keeps its header comments:** a GUI Save of the
+  hotwords/tails editor no longer strips the "# one entry per line…"
+  explanation that makes the file self-documenting.
+- **Applet made compact:** the left-click popup is smaller (slim buttons,
+  tighter margins) and the right-click menu is just Start/Stop + Settings.
 
 ### Fixed
 - **Dictation duplicated everything (two sessions at once):** `tays start`
@@ -111,6 +133,26 @@ and the project follows [Semantic Versioning](https://semver.org/).
   which loads cleanly; if a session ever holds stale code, a desktop logout
   clears it) and (b) the settings window ran in the foreground, holding the
   applet's "busy" flag — it now launches with `tays gui --detach`.
+- **Applet buttons dead + menu stuck on "Start dictation" while a session
+  ran:** the Plasma `executable` data source does not re-run a source string
+  it has already connected — so after the first command, both the 2-second
+  status polls and repeat Start/Stop clicks silently no-opped, leaving the
+  menu on "Start" and `busy` held forever. Every run now gets a UNIQUE
+  source (a trailing shell comment — `tays toggle #42` still runs
+  `tays toggle`, verified through the engine's own `sh -c` path); a
+  20-second watchdog clears `busy` if a command never reports; failures
+  show the CLI's stderr line in the popup instead of a silent no-op; and
+  state changes / failures are `console.log`/`console.warn`'d so
+  `journalctl _PID=<plasmashell>` carries the evidence.
+- **Applet QML binding error (`Unable to assign double to int` at
+  main.qml:283 in the journal):** `font.pixelSize: Kirigami.Units.fontPixelSize - 1`
+  is a JS double; wrapped in `Math.floor(…)`.
+- **Applet icon not resolving on a fresh hicolor theme:** the user-level
+  hicolor theme can ship without an `index.theme` (as on a stock install),
+  which icon lookups ignore. `./install.sh --applet` now writes a standard
+  `index.theme` (listing every directory already present) when one is
+  missing, and refreshes the icon cache when `gtk-update-icon-cache`
+  exists.
 - **GUI model download result clobbered:** the status timer re-consumed the
   finished download every tick, so the true outcome (e.g. a successful
   "Downloaded ✓") was overwritten by "unknown error" a second later. The

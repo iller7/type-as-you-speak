@@ -221,6 +221,24 @@ if [ "$ENABLE_APPLET" = "1" ] && [ -d "$SCRIPT_DIR/applet" ]; then
   ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
   mkdir -p "$ICON_DIR"
   cp "$SCRIPT_DIR/applet/contents/icons/"*.svg "$ICON_DIR/"
+  # Applet icons resolve through the icon theme. A hicolor theme needs an
+  # index.theme for lookup tools to see its directories — write a standard
+  # one (listing every directory already there) if the user doesn't have it.
+  THEME_DIR="$HOME/.local/share/icons/hicolor"
+  if [ ! -f "$THEME_DIR/index.theme" ]; then
+    dirs=""
+    for d in "$THEME_DIR"/*/; do
+      [ -d "$d" ] || continue
+      dirs="${dirs:+$dirs,}$(basename "$d"):$(basename "$d")"
+    done
+    { printf '[Icon Theme Directory]\nName=hicolor\n'
+      [ -n "$dirs" ] && printf 'Directories=%s\n' "$dirs"
+    } > "$THEME_DIR/index.theme"
+    ok "wrote $THEME_DIR/index.theme (was missing)"
+  fi
+  if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -f "$THEME_DIR" 2>/dev/null || true
+  fi
   ok "installed icons -> $ICON_DIR"
 
   PKG_ID="$(sed -n 's/.*"Id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
