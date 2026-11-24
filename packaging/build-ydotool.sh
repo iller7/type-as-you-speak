@@ -10,7 +10,7 @@ curl --fail --location --retry 3 "https://github.com/ReimuNotMoe/ydotool/archive
 printf '%s  %s\n' "$SHA256" "$WORK/source.tar.gz" | sha256sum --check
 mkdir "$WORK/source"
 tar -xzf "$WORK/source.tar.gz" --strip-components=1 -C "$WORK/source"
-cmake -S "$WORK/source" -B "$WORK/build" -DCMAKE_BUILD_TYPE=Release
+cmake -S "$WORK/source" -B "$WORK/build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 cmake --build "$WORK/build" --target ydotool ydotoold --parallel 2
 install -Dm755 "$WORK/build/ydotool" "$STAGE/opt/type-as-you-speak/bin/ydotool"
 install -Dm755 "$WORK/build/ydotoold" "$STAGE/opt/type-as-you-speak/bin/ydotoold"

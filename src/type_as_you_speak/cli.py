@@ -75,25 +75,21 @@ def _ensure_ydotool_daemon() -> None:
         return
     if not shutil.which("ydotool"):
         return  # typing unavailable anyway; nothing to start
-    try:
-        p = subprocess.run(["pgrep", "-x", "ydotoold"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           timeout=5)
-        if p.returncode == 0:
-            return
-    except Exception:
-        pass
+    sock = Path(os.environ.get("YDOTOOL_SOCKET") or
+                str(Path(os.environ["XDG_RUNTIME_DIR"]) / ".ydotool_socket"))
+    if sock.is_socket():
+        return
     exe = shutil.which("ydotoold")
     if not exe:
         _log_line("ydotool present but ydotoold daemon not found — typing unavailable")
         return
     try:
         with open(_logfile(), "ab") as log:
-            subprocess.Popen([exe], stdout=log, stderr=subprocess.STDOUT,
+            subprocess.Popen([exe, "--socket-path", str(sock), "--socket-perm", "0600"],
+                             stdout=log, stderr=subprocess.STDOUT,
                              stdin=subprocess.DEVNULL, start_new_session=True)
-        sock = Path(os.environ["XDG_RUNTIME_DIR"]) / ".ydotool_socket"
         for _ in range(50):
-            if sock.exists():
+            if sock.is_socket():
                 _log_line("started ydotoold daemon (detached)")
                 return
             time.sleep(0.1)

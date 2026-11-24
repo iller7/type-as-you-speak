@@ -29,6 +29,8 @@ def check_distributions(directory: Path) -> None:
         "data/type-as-you-speak.metainfo.xml",
         "data/icons/type-as-you-speak-512.png",
         "scripts/audit.py",
+        "packaging/build-ydotool.sh",
+        "packaging/containers/debian.Dockerfile",
     }
     with tarfile.open(sources[0]) as source:
         names = {name.split("/", 1)[1] for name in source.getnames() if "/" in name}

@@ -19,6 +19,7 @@ Requires:       xclip
 Requires:       ffmpeg-free
 Requires:       pulseaudio-utils
 Requires:       libnotify
+Requires:       dbus-libs
 Requires:       fontconfig
 Requires:       libxkbcommon-x11
 Requires:       xcb-util-cursor
