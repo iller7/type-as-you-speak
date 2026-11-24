@@ -1,5 +1,7 @@
 # Changelog
 
+Current and future changelogs are [generated automatically on GitHub Releases](https://github.com/iller7/type-as-you-speak/releases) from merged pull requests. No new handwritten entries are required here. The entries below are preserved historical notes.
+
 All notable changes to **type-as-you-speak** are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
