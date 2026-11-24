@@ -8,13 +8,13 @@ The product target is Linux across distributions and desktops, plus Windows and 
 
 ## Automated layers
 
-| Layer                        | Environments                                                                                           | What it establishes                                                                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared behaviour             | Ubuntu 24.04 with Python 3.11–3.14; macOS 15 and Windows Server 2025 runners with Python 3.11 and 3.14 | Configuration, audio-buffer boundaries, streaming commits, fallback/error handling, cleanup and transcript privacy using deterministic test inputs |
-| Installed wheel              | The same eight OS/Python combinations                                                                  | The installed command imports, reports help/version and imports inference/GUI dependencies                                                         |
-| Native Linux packages        | Debian 12/13, Ubuntu 24.04/26.04, Fedora 44; Arch package-build check                                  | Distro/ABI-specific packaging; clean installation/audit/offscreen GUI checks where implemented in packaging CI                                     |
-| Known-audio inference        | Planned in [#5](https://github.com/iller7/type-as-you-speak/issues/5)                                  | Actual model output against licensed recordings and expected transcripts; this is separate from stubbed decoder tests                              |
-| Desktop, permissions and GPU | Target hardware or disposable graphical machines                                                       | Microphone capture, focused-window input, shortcuts, clipboard, device permissions, acceleration, signing and installation behaviour               |
+| Layer                        | Environments                                                                                            | What it establishes                                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shared behaviour             | Ubuntu 24.04 with Python 3.11–3.14; macOS 15 and Windows Server 2025 runners with Python 3.11 and 3.14  | Configuration, audio-buffer boundaries, streaming commits, fallback/error handling, cleanup and transcript privacy using deterministic test inputs  |
+| Installed wheel              | The same eight OS/Python combinations                                                                   | The installed command imports, reports help/version and imports inference/GUI dependencies                                                          |
+| Native Linux packages        | Debian 12/13, Ubuntu 24.04/26.04, Fedora 44; Arch package-build check                                   | Distro/ABI-specific packaging; clean installation/audit/offscreen GUI checks where implemented in packaging CI                                      |
+| Known-audio inference        | Python 3.14 on Ubuntu, macOS and Windows CI; [#5](https://github.com/iller7/type-as-you-speak/issues/5) | Pinned tiny.en CPU inference through the EOF-commit path for a CC-BY recording, a noisy derivative and silence; separate from stubbed decoder tests |
+| Desktop, permissions and GPU | Target hardware or disposable graphical machines                                                        | Microphone capture, focused-window input, shortcuts, clipboard, device permissions, acceleration, signing and installation behaviour                |
 
 CI logs the actual host, interpreter and architecture. The macOS runner is one OS/image/architecture at a time; Windows Server CI is not a substitute for Windows desktop testing. CPU-hosted tests do not certify NVIDIA, AMD/ROCm or Apple acceleration. ARM64/native installer support needs explicit verification before advertising it.
 
@@ -42,4 +42,21 @@ Tests exercise the real configuration and session code. Decoder, audio-source, c
 
 ## Current gaps
 
-This is the first suite expansion, not a full certification. GUI interaction/save/download behaviour, real subprocess/audio capture, concurrent lifecycle races, model cache failures, known-recording inference, platform adapters and real desktop/GPU acceptance remain in [#4](https://github.com/iller7/type-as-you-speak/issues/4) and the linked issues. Keep these open until their acceptance criteria are met; do not close a cross-platform issue because one hosted runner passes.
+Automated coverage is not a full platform certification. GUI interaction/save/download behaviour, real subprocess/audio capture, concurrent lifecycle races, model cache failures, broader recording/accuracy coverage, platform adapters and real desktop/GPU acceptance remain in [#4](https://github.com/iller7/type-as-you-speak/issues/4) and the linked issues. Keep these open until their acceptance criteria are met; do not close a cross-platform issue because one hosted runner passes.
+
+## Real CPU recognition baseline
+
+The Python 3.14 matrix jobs explicitly download a pinned public tiny.en model, verify every model-file hash, then run the recognition marker with offline loading and Python socket guards. The four Linux Python versions plus the Windows/macOS minimum/latest matrix retain fast checks; the model is prepared only on three latest-Python jobs, without adding runners or uploading weights/audio as artifacts. Public model downloads need no token or cloud inference account.
+
+Run the same two stages locally on Linux, Windows or macOS, using a writable model directory:
+
+```sh
+uv run --locked python scripts/prepare-test-model.py --output PATH_TO_MODEL_DIRECTORY
+uv run --locked pytest -m recognition tests/test_recognition.py --recognition-model PATH_TO_MODEL_DIRECTORY -q -s
+```
+
+The first command deliberately uses the network to obtain and verify model files. The second requires those local files, blocks Python network connections and desktop commands, and does not use a microphone. Normal pytest runs exclude recognition tests and never download models. A missing or corrupt model fails an explicitly requested recognition run; it is not silently skipped.
+
+The [fixture provenance and thresholds](https://github.com/iller7/type-as-you-speak/blob/master/tests/fixtures/audio/README.md) record the original transcript, CC-BY-4.0 attribution, WAV conversion, corpus ID and hashes. WER/CER normalize case/punctuation; the baseline permits the documented Concord/Concorde homophone, and logs elapsed time without a hosted-runner speed gate. Silence must commit no text. The decoder and Silero VAD are real; only input, notifications and the audio source boundary are controlled.
+
+This first integration baseline deliberately flushes the full pending recording at EOF. Live streaming cadence, long speech, diverse speakers/accents, real background noise, GPU inference and OS-level network isolation remain open. The Python network guard is not a substitute for an OS firewall or a complete privacy audit. A discovered faster-whisper/PyAV file-helper incompatibility is tracked separately in [#42](https://github.com/iller7/type-as-you-speak/issues/42); the app and these PCM tests use float32 arrays rather than that helper.
