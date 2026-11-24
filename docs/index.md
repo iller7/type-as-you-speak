@@ -10,7 +10,7 @@ title: Local dictation for Linux
 
 ## Your speech stays on your machine
 
-Recognition runs locally after the initial model download. No cloud LLM provider or account is required. Review the [configuration guide](configuration.md) for CPU/GPU choices and the [security guide](https://github.com/iller7/type-as-you-speak/blob/master/SECURITY.md) for input-device permissions. This site adds no analytics or tracking pixels.
+Recognition runs locally after the initial model download. No cloud LLM provider or account is required. Read [privacy and network access](privacy.md) for telemetry controls and verification limits. Review the [configuration guide](configuration.md) for CPU/GPU choices and the [security guide](https://github.com/iller7/type-as-you-speak/blob/master/SECURITY.md) for input-device permissions. This site adds no analytics or tracking pixels.
 
 ## Start here
 
@@ -26,7 +26,7 @@ Recognition runs locally after the initial model download. No cloud LLM provider
 
 ## Linux first, with honest support boundaries
 
-KDE Plasma/GNOME and Wayland/X11 are the integration targets. CI builds and checks Debian 12/13, Ubuntu 24.04/26.04 and Fedora 44 packages; Arch has a package-build check. Real microphone, focus, input and GPU QA remains [tracked separately](https://github.com/iller7/type-as-you-speak/issues/7). Select a release asset matching your distro and architecture; a CI build does not mean that asset has been published.
+KDE Plasma/GNOME and Wayland/X11 are the integration targets. CI builds and checks Debian 12/13, Ubuntu 24.04/26.04 and Fedora 44/45 packages; Arch has a package-build check. Real microphone, focus, input and GPU QA remains [tracked separately](https://github.com/iller7/type-as-you-speak/issues/7). Select a release asset matching your distro and architecture; a CI build does not mean that asset has been published.
 
 Flatpak remains experimental. macOS and Windows currently have portable-code CI checks; desktop dictation ports and installers are not available. See the [distribution guide](https://github.com/iller7/type-as-you-speak/blob/master/packaging/README.md) for details.
 
