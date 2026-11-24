@@ -59,7 +59,8 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra"
+addopts = "-ra -m 'not recognition'"
+markers = ["recognition: real pinned-model CPU inference; explicit model preparation required"]
 
 [tool.ruff]
 target-version = "py311"
