@@ -179,9 +179,13 @@ says "(configured: … — applies to the next session)" so the two never look
 out of sync) and every config option, on three tabs:
 
 - **General** — Model & device, Background audio
-- **Corrections** — Hotwords (inline + file, with the file's contents shown
-  in an editable area below — edit and **Save** writes it back), and
-  Hallucination tails (inline list + file, same treatment)
+- **Corrections** — Hotwords and Hallucination tails. Each list has **one
+  editor** (the words/phrases that are actually in effect — inline and file
+  combined, one per line) and **one file entry** (where the list is kept;
+  it comes pre-filled with the natural home next to your settings, and
+  saving creates the file if it doesn't exist yet). Save writes the list to
+  exactly one place — the file when a path is set (the inline copy is
+  cleared so the list isn't in two places), or the settings when no path.
 - **Advanced** — Typing & pacing, Decode stability
 
 Details:
@@ -201,8 +205,8 @@ Details:
   install is CUDA/CPU only).
 - **Language** is a dropdown with flags and native names
   (🇬🇧 English, 🇫🇷 Français, … — editable for the long tail).
-- **Hover any field** and the window's status bar explains what it does
-  (plus a native tooltip).
+- **Hover any field** and the window's status bar explains what it does in
+  plain English (plus a native tooltip).
 
 **Save** writes your `config.toml` preserving its comments, and writes the
 hotwords / tails files when their contents were edited; **Revert** reloads;
@@ -211,30 +215,36 @@ session.
 
 ### Panel applet (KDE Plasma)
 
-For an always-present mic icon in your panel — no window, no process of its
-own (it runs inside `plasmashell`, and drives `tays status --json` /
+For an always-present mic icon in your panel — no window, no extra process
+(it runs inside `plasmashell`, and drives `tays status --json` /
 `tays toggle` as short-lived commands):
 
-- **Grey icon** while stopped, **red** while the session is live.
-- **Left-click** — status (model + actual GPU) with Start/Stop and
-  Settings.
+- **Grey mic icon** while stopped, **red** while the session is live.
+- **Left-click** — status (model + actual GPU) with Start/Stop and Settings;
+  if an action fails, the popup says why instead of doing nothing.
 - **Right-click** — Start/Stop, Settings (opens `tays gui`), Status, About.
 
 Install it (needs the app installed as above — the applet finds `tays` in
-your usual locations):
+your usual locations; the mic icons go into your icon theme, where Plasma
+looks for applet icons):
 
 ```bash
 cd type-as-you-speak
-plasmapkg2 --type Plasma/Applet --add --path "$PWD/applet"   # if plasmapkg2 exists
-# or, anywhere (copies into the per-user plasmoid dir):
-mkdir -p ~/.local/share/plasma/plasmoids
-cp -r applet ~/.local/share/plasma/plasmoids/org.iller7.typeasyspeak
+./install.sh --applet
+# or, manually:
+#   mkdir -p ~/.local/share/icons/hicolor/scalable/apps
+#   cp applet/contents/icons/*.svg ~/.local/share/icons/hicolor/scalable/apps/
+#   cp -r applet ~/.local/share/plasma/plasmoids/org.iller7.tays
 ```
 
 Then right-click your panel → **Add Widgets…** → search "type-as-you-speak"
-→ add. To update after a new version: remove it from the panel, re-copy,
-re-add. (Plasma keeps a live instance in memory — re-adding is the clean
-reload.)
+→ add.
+
+**Updating the applet:** remove it from the panel, re-run the install
+step, re-add. Plasma keeps the version it first loaded in memory for the
+life of the session — if the applet still misbehaves after remove/re-add,
+the running session itself is holding the old code, and a desktop logout
+(or restarting `plasmashell`) is the one-time fix.
 
 ---
 

@@ -7,6 +7,7 @@
 #   3. puts `tays` on your PATH (~/.local/bin/tays)
 #   4. makes sure the ydotool daemon (a systemd *user* service) is running
 #   5. writes a sample config and installs the Dictation-key toggle script
+#   6. (optional, --applet) installs the KDE Plasma panel applet + its icon
 #
 # It is idempotent — run it again any time to update to the latest code.
 # It does NOT use sudo: OS packages are reported, not installed.
@@ -14,6 +15,7 @@
 # Usage:
 #   ./install.sh              # everything
 #   ./install.sh --no-daemon  # skip enabling the ydotool daemon (I'll do it myself)
+#   ./install.sh --applet     # also install the KDE Plasma panel applet (+ its icon)
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,6 +25,8 @@ BIN_DIR="$HOME/.local/bin"
 BIN_LINK="$BIN_DIR/tays"
 ENABLE_DAEMON=1
 [ "${1:-}" = "--no-daemon" ] && ENABLE_DAEMON=0
+ENABLE_APPLET=0
+for a in "$@"; do [ "$a" = "--applet" ] && ENABLE_APPLET=1; done
 
 say()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m  ok\033[0m  %s\n' "$*"; }
@@ -207,6 +211,29 @@ if [ -f "$TOGGLE_SRC" ]; then
   cp "$TOGGLE_SRC" "$TOGGLE_DST"
   chmod +x "$TOGGLE_DST"
   ok "installed Dictation-key helper -> $TOGGLE_DST"
+fi
+
+# ---- 6. optional: KDE Plasma panel applet (./install.sh --applet) -------------
+if [ "$ENABLE_APPLET" = "1" ] && [ -d "$SCRIPT_DIR/applet" ]; then
+  say "Installing the KDE panel applet"
+  # The icon must resolve through the icon theme (that's how applet icons are
+  # looked up) — the standard place for an app icon is the hicolor theme.
+  ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
+  mkdir -p "$ICON_DIR"
+  cp "$SCRIPT_DIR/applet/contents/icons/"*.svg "$ICON_DIR/"
+  ok "installed icons -> $ICON_DIR"
+
+  PKG_ID="$(sed -n 's/.*"Id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+             "$SCRIPT_DIR/applet/metadata.json" | head -1)"
+  [ -z "$PKG_ID" ] && PKG_ID="org.iller7.tays"
+  PKG_DST="$HOME/.local/share/plasma/plasmoids/$PKG_ID"
+  rm -rf "$PKG_DST"
+  cp -r "$SCRIPT_DIR/applet" "$PKG_DST"
+  ok "installed applet -> $PKG_DST"
+  echo
+  echo "  Now: right-click the panel -> Add Widgets -> 'type-as-you-speak' -> add."
+  echo "  (If an old copy is on the panel, remove it first — Plasma keeps the"
+  echo "   version it first loaded in memory for the life of the session.)"
 fi
 
 # ---- done ---------------------------------------------------------------------

@@ -794,7 +794,23 @@ def cmd_models(_args) -> int:
 
 def cmd_gui(_args) -> int:
     """Open the settings window. The GUI is an optional extra so the core
-    stays lean — if its dependencies are missing, say so and point at the fix."""
+    stays lean — if its dependencies are missing, say so and point at the fix.
+
+    ``--detach`` (used by the Plasma applet) launches the window in its own
+    session and returns immediately, so the caller isn't held open for the
+    lifetime of the window."""
+    if getattr(_args, "detach", False):
+        try:
+            out = open(_state_dir() / "gui.log", "ab")
+            subprocess.Popen(
+                [sys.executable, "-m", "type_as_you_speak", "gui"],
+                stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                start_new_session=True)
+            return 0
+        except Exception as e:
+            print(f"type-as-you-speak: failed to launch GUI: {e!r}",
+                  file=sys.stderr)
+            return 1
     try:
         from . import gui
     except ImportError as e:
@@ -838,8 +854,10 @@ def build_parser() -> argparse.ArgumentParser:
     spst.set_defaults(func=cmd_status)
     sub.add_parser("setup", help="check requirements, enable ydotool, write sample config").set_defaults(func=cmd_setup)
     sub.add_parser("models", help="list the available Whisper models and sizes").set_defaults(func=cmd_models)
-    sub.add_parser("gui", help="open the settings window (optional 'gui' extra)") \
-        .set_defaults(func=cmd_gui)
+    gp = sub.add_parser("gui", help="open the settings window (optional 'gui' extra)")
+    gp.add_argument("--detach", action="store_true",
+                    help="launch the window in its own session and return immediately (used by the panel applet)")
+    gp.set_defaults(func=cmd_gui)
     kb = sub.add_parser("keybind", help="print the steps to bind a Dictation key for your desktop")
     kb.add_argument("--de", default=None, metavar="DE",
                     help="target desktop: kde|gnome|sway|hyprland|xfce|generic (default: auto-detect)")
