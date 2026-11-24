@@ -36,23 +36,33 @@ and the project follows [Semantic Versioning](https://semver.org/).
   `DICTATE_HOTWORDS_FILE` overrides.)
 - **CPU fallback model `small.en`:** when the GPU decode is unstable, the
   session continues on CPU `small.en` int8 (was `base.en`).
-- **KDE Plasma panel applet** (`org.iller7.typeasyspeak`): an always-present
-  mic icon in the panel — **grey** while stopped, **red** while a dictation
+- **KDE Plasma panel applet** (`org.iller7.tays`): an always-present mic
+  icon in the panel — **grey** while stopped, **red** while a dictation
   session is live. Left-click pops up the status (model + actual GPU) with
-  Start/Stop and Settings; right-click gives the full menu (Start/Stop,
-  Settings → `tays gui`, Status, About). Runs entirely inside `plasmashell`
+  Start/Stop and Settings (failures are shown in the popup instead of doing
+  nothing); right-click gives the full menu (Start/Stop, Settings →
+  `tays gui --detach`, Status, About). Runs entirely inside `plasmashell`
   — no extra process, no daemon — driving `tays status --json` /
   `tays toggle` as short-lived commands and finding `tays` in the usual
-  install locations. Shipped at `applet/` in the repo; install steps in the
-  README ("Panel applet (KDE Plasma)").
+  install locations. Shipped at `applet/` in the repo; `./install.sh
+  --applet` installs it plus the mic icons into the icon theme (where
+  Plasma looks for applet icons).
+- **`tays gui --detach`:** launches the settings window in its own session
+  and returns immediately — used by the panel applet so it is never blocked
+  for the lifetime of the window.
 - **`hallucination_tails_file`:** a file of extra tail phrases (one per
   line, `#` comments allowed), combined with the inline
   `hallucination_tails` list and deduped — the shareable-list treatment of
   `hotwords_file`, mirrored for tails (`DICTATE_TAILS_FILE` override).
-- **Corrections tab in the settings GUI:** hotwords and hallucination tails
-  get their own tab next to General — each with the inline list plus the
-  file path, and the **file's contents in an editable area below**: loaded
-  when opened, written back on **Save** (created if it doesn't exist yet).
+- **Corrections tab in the settings GUI (redesigned):** hotwords and
+  hallucination tails each get **one editor** showing the list that's
+  actually in effect (inline + file combined, one per line) and **one file
+  entry** — pre-filled with the natural home next to your settings (e.g.
+  `~/.config/type-as-you-speak/hotwords.txt`), so there is always a visible,
+  sensible path and an existing hotwords file is picked up and wired in on
+  Save. Save writes the list to exactly one place — the file when a path is
+  set (the inline copy is cleared so the list isn't duplicated), or the
+  settings when no path is set.
 - **Model ↔ language sync in the settings GUI:** with a non-English language
   selected, English-only `.en` models are marked "English only"; picking
   one points at (or auto-switches to) its multilingual twin
@@ -73,6 +83,10 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - **Settings GUI i18n-ready:** all window strings route through
   `QObject.tr()` (and the applet uses QML `i18n()`), ready for `.ts`/`.qm`
   translations.
+- **Settings GUI help text rewritten in plain English:** every hover
+  explanation now starts with what the option does in everyday language
+  ("How quiet the music and other sound get while you're talking…"), with
+  the technical detail after — no degree required.
 
 ### Fixed
 - **Dictation duplicated everything (two sessions at once):** `tays start`
@@ -87,7 +101,16 @@ and the project follows [Semantic Versioning](https://semver.org/).
   which does not exist in QML — the resulting TypeError killed the icon
   binding and the popup at once. Command paths now use `$HOME` shell
   expansion (the `executable` data source runs commands through a shell),
-  verified under plasmashell's own environment.
+  verified under plasmashell's own environment. Follow-ups from the first
+  re-add: the **icon was still blank** because applet icons resolve through
+  the icon theme (no system applet ships `contents/icons`) — the mic icons
+  are now installed into the `hicolor` theme by `./install.sh --applet`;
+  and **Settings did nothing** because (a) the running `plasmashell` kept
+  the first-compiled version of the applet in memory for the life of the
+  session (the applet now ships under a fresh package id, `org.iller7.tays`,
+  which loads cleanly; if a session ever holds stale code, a desktop logout
+  clears it) and (b) the settings window ran in the foreground, holding the
+  applet's "busy" flag — it now launches with `tays gui --detach`.
 - **GUI model download result clobbered:** the status timer re-consumed the
   finished download every tick, so the true outcome (e.g. a successful
   "Downloaded ✓") was overwritten by "unknown error" a second later. The

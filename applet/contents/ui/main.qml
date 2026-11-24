@@ -2,15 +2,22 @@
 // type-as-you-speak — Plasma 6 panel applet.
 //
 // The icon is always present: grey while the dictation session is stopped,
-// red while it is live. Left-click shows the status popup (start/stop,
-// settings); right-click gives the full menu. State is polled from
-// `tays status --json` every two seconds, so the icon mirrors a session
-// started from anywhere (CLI, GUI, or here).
+// red while it is live (both are installed into the icon theme — see
+// install.sh / the README). Left-click shows the status popup
+// (start/stop, settings); right-click gives the full menu. State is polled
+// from `tays status --json` every two seconds, so the icon mirrors a
+// session started from anywhere (CLI, GUI, or here).
 //
-// Commands run through Plasma's "executable" data source (the Plasma 5
-// compatibility layer Plasma 6 still ships for applets). plasmashell's
-// PATH does not include ~/.local/bin, so the applet tries the standard
-// install locations in order and remembers whichever one works.
+// Commands run through Plasma's "executable" data source (KDE's
+// KProcess::setShellCommand — the command goes through a shell, so $HOME
+// and friends work). plasmashell's PATH does not include ~/.local/bin, so
+// the applet tries the standard install locations in order (absolute
+// home path derived from this file's own location, then $HOME, then bare
+// `tays`) and remembers whichever one answers.
+//
+// `gui --detach` is used for the settings window: the CLI launches the
+// window in its own session and returns at once, so this applet is never
+// blocked for the lifetime of the window.
 
 import QtQuick
 import QtQuick.Layouts
@@ -25,17 +32,25 @@ PlasmoidItem {
 
     // ----- state -------------------------------------------------------------
     property bool running: false
-    property bool busy: false            // a start/stop/gui command is in flight
+    property bool busy: false            // a start/stop command is in flight
     property bool statusOk: false        // last status poll succeeded
     property string detail: ""          // "small.en on NVIDIA GeForce RTX 5090 (CUDA)"
+    property string lastError: ""       // shown in the popup when an action fails
     property string popupView: "status" // "status" | "about"
 
     // ----- command resolution ------------------------------------------------
-    // Candidate `tays` base commands, in preference order. The first one that
-    // answers `status --json` is kept (cmdIndex); a failed poll advances to
-    // the next candidate, so installs keep working as they evolve.
-    // (The "executable" data source runs commands through a shell, so $HOME
-    // is expanded at runtime — QML itself cannot read environment variables.)
+    // The applet is installed under $HOME/.local/share/plasma/plasmoids/, so
+    // $HOME is derivable from this file's own URL — no environment access
+    // needed from QML.
+    function homePath() {
+        const parts = Qt.resolvedUrl.toString().replace("file://", "").split("/");
+        const i = parts.indexOf(".local");
+        if (i > 1) {
+            return "/" + parts.slice(0, i).join("/");
+        }
+        return "";
+    }
+
     property int cmdIndex: 0
 
     function candidateCommands() {
@@ -49,7 +64,11 @@ PlasmoidItem {
         if (cfg.length > 0) {
             list.push(cfg);
         }
-        list.push("$HOME/.local/share/type-as-you-speak/venv/bin/python -m type_as_you_speak");
+        const home = root.homePath();
+        if (home.length > 0) {
+            list.push(home + "/.local/share/type-as-you-speak/venv/bin/python -m type_as_you_speak");
+            list.push(home + "/.local/bin/tays");
+        }
         list.push("$HOME/.local/bin/tays");
         list.push("tays");
         return list;
@@ -71,11 +90,15 @@ PlasmoidItem {
                 root.handleStatus(data);
                 return;
             }
-            // One-shot actions (start/stop/gui): record success; the next
-            // status poll reflects the new state.
+            // One-shot actions (start/stop/gui): show failure instead of
+            // silently doing nothing.
             const exit = parseInt(data["exit code"], 10);
             if (exit !== 0) {
+                const what = String(source).replace(root.baseCommand(), "").trim();
+                root.lastError = i18n("‘%1’ finished with code %2 — run it in a terminal for details.", what, exit);
                 console.warn("type-as-you-speak applet: command exited " + exit);
+            } else {
+                root.lastError = "";
             }
             root.busy = false;
         }
@@ -134,13 +157,13 @@ PlasmoidItem {
             if (st["gpu"]) {
                 on = st["gpu"] + " (" + dev.toUpperCase() + ")";
             } else if (dev === "cpu") {
-                on = "CPU (int8)";
+                on = i18n("CPU (int8)");
             } else {
                 on = dev.toUpperCase();
             }
-            return model + " on " + on;
+            return i18n("%1 on %2", model, on);
         }
-        return model + " (device: " + dev + ")";
+        return i18n("%1 (device: %2)", model, dev);
     }
 
     // ----- actions -------------------------------------------------------------
@@ -153,7 +176,9 @@ PlasmoidItem {
     function runGui() {
         if (root.busy) return;
         root.busy = true;
-        exec.run(root.baseCommand() + " gui");
+        // --detach: the CLI returns at once, so `busy` clears even while
+        // the settings window stays open.
+        exec.run(root.baseCommand() + " gui --detach");
     }
 
     // ----- look ------------------------------------------------------------------
@@ -162,7 +187,7 @@ PlasmoidItem {
         ? PlasmaCore.Types.ActiveStatus
         : PlasmaCore.Types.PassiveStatus
 
-    toolTipMainText: "type-as-you-speak"
+    toolTipMainText: i18n("type-as-you-speak")
     toolTipSubText: {
         if (root.running) {
             return i18n("Listening — %1", root.detail);
@@ -210,7 +235,7 @@ PlasmoidItem {
     // ----- left-click popup ---------------------------------------------------------
     fullRepresentation: Item {
         implicitWidth: Kirigami.Units.gridUnit * 30
-        implicitHeight: Kirigami.Units.gridUnit * 14
+        implicitHeight: Kirigami.Units.gridUnit * 15
 
         // ---- status view ----
         ColumnLayout {
@@ -230,6 +255,7 @@ PlasmoidItem {
                 PlasmaComponents3.Label {
                     text: root.running ? i18n("Listening") : i18n("Stopped")
                     font.bold: true
+                    Layout.fillWidth: true
                 }
             }
             PlasmaComponents3.Label {
@@ -238,19 +264,23 @@ PlasmoidItem {
                 wrapMode: Text.WordWrap
                 opacity: 0.85
             }
-            RowLayout {
+            PlasmaComponents3.Button {
+                text: root.running ? i18n("Stop") : i18n("Start")
                 Layout.fillWidth: true
-                spacing: Kirigami.Units.smallSpacing
-                PlasmaComponents3.Button {
-                    text: root.running ? i18n("Stop") : i18n("Start")
-                    Layout.fillWidth: true
-                    onClicked: root.toggle()
-                }
-                PlasmaComponents3.Button {
-                    text: i18n("Settings…")
-                    Layout.fillWidth: true
-                    onClicked: root.runGui()
-                }
+                onClicked: root.toggle()
+            }
+            PlasmaComponents3.Button {
+                text: i18n("Settings…")
+                Layout.fillWidth: true
+                onClicked: root.runGui()
+            }
+            PlasmaComponents3.Label {
+                visible: root.lastError.length > 0
+                text: root.lastError
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                color: "#B04A42"
+                font.pixelSize: Kirigami.Units.fontPixelSize - 1
             }
         }
 
@@ -266,7 +296,7 @@ PlasmoidItem {
                 font.bold: true
             }
             PlasmaComponents3.Label {
-                text: i18n("Speak, and it types into your window —\nMac-like live dictation for Linux.")
+                text: i18n("Speak, and it types into your window — Mac-like live dictation for Linux.")
                 Layout.fillWidth: true
                 wrapMode: Text.WordWrap
                 opacity: 0.85
