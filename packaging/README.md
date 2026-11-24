@@ -2,12 +2,12 @@
 
 KDE Plasma and GNOME are desktops; Debian/Ubuntu, Arch and Fedora are distributions. The app needs both distro package checks and desktop/session tests. We follow KDE's [build-before-publication approach](https://develop.kde.org/docs/packaging/flatpak/publishing/) and Python's [downstream packaging guidance](https://packaging.python.org/en/latest/discussions/downstream-packaging/): complete source archives, offline build inputs, declared dependencies and tests against installed artifacts.
 
-| Channel | Build path | Automated scope | Publication |
-|---|---|---|---|
-| Debian 12/13, Ubuntu 24.04/26.04 | `packaging/containers/debian.Dockerfile` | Native interpreter, locked dependencies, vulnerability audit, install, imports, offscreen Qt launch | Tagged GitHub release assets |
-| Fedora 44 | `packaging/containers/fedora.Dockerfile` | Offline RPM/SRPM, native ABI, audit, install, imports, offscreen Qt launch | Tagged GitHub release assets; Copr is separate |
-| Arch | `packaging/aur/PKGBUILD` | Non-root makepkg build from the current checkout | AUR submission and runtime dependency validation remain separate |
-| Flatpak | `packaging/flatpak/` | Prototype with pinned source commits and an offline dependency generator | Experimental; not a release asset or a Flathub-ready submission |
+| Channel                          | Build path                               | Automated scope                                                                                     | Publication                                                      |
+| -------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Debian 12/13, Ubuntu 24.04/26.04 | `packaging/containers/debian.Dockerfile` | Native interpreter, locked dependencies, vulnerability audit, install, imports, offscreen Qt launch | Tagged GitHub release assets                                     |
+| Fedora 44                        | `packaging/containers/fedora.Dockerfile` | Offline RPM/SRPM, native ABI, audit, install, imports, offscreen Qt launch                          | Tagged GitHub release assets; Copr is separate                   |
+| Arch                             | `packaging/aur/PKGBUILD`                 | Non-root makepkg build from the current checkout                                                    | AUR submission and runtime dependency validation remain separate |
+| Flatpak                          | `packaging/flatpak/`                     | Prototype with pinned source commits and an offline dependency generator                            | Experimental; not a release asset or a Flathub-ready submission  |
 
 These are CI targets, not a claim that every desktop/hardware combination has been tested. Native package jobs currently target x86-64. PySide6's current ARM64 Linux wheel needs a newer glibc than some target distributions; do not advertise ARM64 packages until native builds are added and tested.
 
@@ -59,3 +59,7 @@ Before shipping: supply and verify `ffmpeg`/`pactl` runtime tools, validate the 
 ## Release evidence
 
 Container checks cannot exercise a real microphone, compositor permissions, focus, global shortcuts or GPU inference. Complete the desktop checklist in CONTRIBUTING.md before describing a release as desktop-tested. The source archive carries packaging scripts, icons, metadata, configuration, tests and the lockfile so downstream packagers can reproduce the build inputs.
+
+## CI artifacts
+
+Pull requests still build, install and audit the native packages, but do not upload large binaries. To obtain test packages, run the CI workflow manually on the desired branch; those package artifacts expire after one day. Tag-triggered release builds also upload packages for the publish job, which attaches them to the GitHub release. This limits temporary storage on GitHub Free. Existing artifacts are not deleted by this policy change.

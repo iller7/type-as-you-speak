@@ -1,5 +1,7 @@
 # Contributing
 
+Read [AGENTS.md](AGENTS.md) for project-wide guidance and [TODO.md](TODO.md) for priorities and status. Keep the backlog current as work progresses; preserve completion evidence and remaining verification gaps. Local agents can use the [Python desktop guide](.agents/guides/python-desktop.md) without a cloud LLM provider. If the local harness does not load AGENTS.md automatically, include it in the initial project context.
+
 Use Python 3.14 for development. We test Python 3.11–3.14 for Linux distro compatibility. Python 3.15 awaits compatible ONNX Runtime wheels. `mise install` supplies pinned developer tools; alternatively install the versions in `mise.toml` yourself.
 
 ```sh
@@ -24,4 +26,10 @@ Before a release, test on a real Linux desktop: KDE Plasma and GNOME; Wayland an
 
 ## Platform direction
 
-Keep transcription and configuration independent of desktop integrations. Future macOS/Windows support needs separate adapters for audio capture, input injection, permissions, shortcuts, application data paths and packaging/signing. Retain PySide6 for a shared settings UI. Do not reuse Linux shell tools as a cross-platform abstraction. Introduce these adapters with behaviour tests when implementing the ports; a full Rust rewrite is not required for this boundary.
+Keep transcription and configuration independent of desktop integrations. Future macOS/Windows support needs separate adapters for audio capture, input injection, permissions, shortcuts, application data paths and packaging/signing. Use the current PySide6 UI while T019 evaluates desktop-shell alternatives; the framework choice remains open. Do not reuse Linux shell tools as a cross-platform abstraction. Introduce these adapters with behaviour tests when implementing the ports; a full Rust rewrite is not required for this boundary.
+
+## PR workflow and documentation
+
+Create a PR for completed work rather than leaving it only on a feature branch. When merging is authorised, use normal merge or auto-merge after required checks pass; authors cannot approve their own PRs. Confirm the merged state and sync master before starting the next piece of work. Do not bypass protections or fabricate an approval.
+
+Write Markdown paragraphs and list items on single source lines, with visual wrapping in the editor. The repository configures Prettier to avoid hard wrapping. Indent two spaces by default, four for Python, and use tabs in Makefiles. Focused user guides live in docs/; the README should remain a short entry point.
