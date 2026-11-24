@@ -13,7 +13,7 @@ Read `TODO.md` before substantial work. It is a concise roadmap to GitHub Issues
 
 ## Backlog upkeep
 
-- GitHub Issues owns tasks, priority, acceptance criteria, progress and verification evidence. Add discoveries and follow-ups there, checking for duplicates first. Retain migrated Txxx IDs for historical references; new issues can use their GitHub number directly.
+- GitHub Issues owns tasks, priority, acceptance criteria, progress and verification evidence. Add discoveries and follow-ups there, checking for duplicates first. Use GitHub issue numbers as the only task identifiers; do not add a second numbering scheme.
 - Use priority:P0 through priority:P3 labels. Use status:in-progress or status:needs-decision where applicable; unlabelled open issues are queued. Remove obsolete status labels when a decision is made, work stops or the task closes.
 - Every PR must reference an issue: use `Refs #123` for partial progress and `Closes #123` only when all acceptance criteria are met. Automated dependency PRs also need a linked tracking issue before merging; create/link one rather than bypassing the convention.
 - Preserve unresolved verification gaps in the issue. Distinguish implementation, CI verification, desktop QA, merging and release publication. A build does not prove microphone, focus, input or GPU compatibility.

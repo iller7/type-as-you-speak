@@ -24,7 +24,9 @@ RUN python -m pip check && uv run --locked pytest && uv run --locked python -m b
     . /build-profile.env && bash scripts/prepare-wheelhouse.sh
 RUN mkdir -p /root/rpmbuild/SOURCES && cp dist/*.tar.gz /root/rpmbuild/SOURCES/ && \
     tar -czf /root/rpmbuild/SOURCES/wheelhouse.tar.gz -C dist/wheelhouse .
-RUN rpmbuild -ba packaging/fedora/type-as-you-speak.spec
+RUN rpmbuild -ba --define '_binary_payload w3.zstdio' packaging/fedora/type-as-you-speak.spec && \
+    rpm -qp --qf '%{NAME} %{ARCH}: %{PAYLOADCOMPRESSOR} flags=%{PAYLOADFLAGS}\n' /root/rpmbuild/RPMS/*/*.rpm && \
+    ls -l /root/rpmbuild/RPMS/*/*.rpm
 FROM ${BASE_IMAGE} AS smoke
 ENV QT_QPA_PLATFORM=offscreen
 COPY --from=build /root/rpmbuild/RPMS/ /packages/
