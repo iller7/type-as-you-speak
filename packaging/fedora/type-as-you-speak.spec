@@ -90,5 +90,5 @@ PYTHONPATH=%{buildroot}/opt/%{name}/pydeps python3 -c 'import numpy, onnxruntime
 %license /usr/share/licenses/%{name}
 
 %changelog
-* Tue Nov 24 2026 Faizal Sahebdin <iller7@gmail.com> - 0.5.1-1
+* Tue Nov 24 2026 Faizal Sahebdin <faizal.sahebdin@gmail.com> - 0.5.1-1
 - Build from a locked offline wheelhouse and check native imports.

@@ -1,0 +1,18 @@
+- title: Installation
+  url: /install.html
+- title: User guide
+  url: /usage.html
+- title: Configuration
+  url: /configuration.html
+- title: Privacy and security
+  url: /privacy.html
+- title: Troubleshooting
+  url: /troubleshooting.html
+- title: Testing and platforms
+  url: /testing.html
+- title: Architecture
+  url: /architecture.html
+- title: Licensing
+  url: /licensing.html
+- title: Project direction
+  url: /project-direction.html

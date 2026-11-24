@@ -2,7 +2,11 @@
 
 [![CI](https://github.com/iller7/type-as-you-speak/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/iller7/type-as-you-speak/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/iller7/type-as-you-speak)](https://github.com/iller7/type-as-you-speak/releases/latest) [![License](https://img.shields.io/github/license/iller7/type-as-you-speak)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/iller7/type-as-you-speak/total)](https://github.com/iller7/type-as-you-speak/releases) [![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.15-blue)](docs/testing.md) ![Platform](https://img.shields.io/badge/platform-Linux-blue)
 
-Local dictation for Linux. Press a shortcut, speak, and type into the focused window as speech is recognised. The app uses faster-whisper for recognition and ydotool for input, with a clipboard fallback.
+Real-time dictation with privacy built in. Speak into the app you are using: text is typed into its focused input field, subject to desktop permissions and application compatibility. Strict offline dictation is enabled by default.
+
+The privacy hardening described here is on `master`; existing v0.5.1 binaries predate these protections.
+
+Linux desktop integration is available today. macOS, Windows and an optional cloud service are planned; they are not current desktop/service features.
 
 Audio stays on your machine. The first model download needs network access; recognition then runs locally. No cloud LLM provider or account is required.
 
