@@ -1,4 +1,6 @@
 import importlib.util
+import re
+import tomllib
 import shutil
 from pathlib import Path
 
@@ -6,6 +8,9 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+PROJECT_VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"][
+    "version"
+]
 
 
 def release_module():
@@ -18,12 +23,12 @@ def release_module():
 
 
 def test_repository_versions_agree():
-    assert release_module().check_versions(ROOT) == "0.5.1"
+    assert release_module().check_versions(ROOT) == PROJECT_VERSION
 
 
 def test_wrong_tag_is_rejected():
     with pytest.raises(ValueError, match="tag"):
-        release_module().check_versions(ROOT, "v9.9.9")
+        release_module().check_versions(ROOT, f"v{PROJECT_VERSION}.invalid")
 
 
 def test_packaging_version_drift_is_rejected(tmp_path):
@@ -38,7 +43,12 @@ def test_packaging_version_drift_is_rejected(tmp_path):
             shutil.copy(source, target)
     spec = tmp_path / "packaging/fedora/type-as-you-speak.spec"
     spec.write_text(
-        spec.read_text().replace("Version:        0.5.1", "Version:        9.9.9")
+        re.sub(
+            r"^Version:\s+\S+",
+            f"Version: {PROJECT_VERSION}.invalid",
+            spec.read_text(),
+            flags=re.M,
+        )
     )
     with pytest.raises(ValueError, match="Fedora"):
         release_module().check_versions(tmp_path)
