@@ -41,6 +41,9 @@ def cpu_model(pytestconfig):
     with pytest.MonkeyPatch.context() as offline:
         offline.setattr(socket.socket, "connect", no_network)
         offline.setattr(socket, "create_connection", no_network)
+        from type_as_you_speak.privacy import disable_inference_telemetry
+
+        disable_inference_telemetry()
         from faster_whisper import WhisperModel
 
         yield WhisperModel(

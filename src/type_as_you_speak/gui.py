@@ -549,11 +549,18 @@ class SettingsWindow(QMainWindow):
         loading on CPU). Runs in a background thread; the status timer polls
         _dl_line / _dl_result. Full output is also appended to
         model-download.log (state dir) so failures leave evidence."""
-        code = (f"from faster_whisper import WhisperModel; "
+        code = ("from type_as_you_speak.privacy import disable_inference_telemetry; "
+                "disable_inference_telemetry(); "
+                f"from faster_whisper import WhisperModel; "
                 f"WhisperModel({name!r}, device='cpu', compute_type='int8')")
+        env = dict(os.environ)
+        # Native launchers add private dependencies to sys.path, not the child environment.
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, (
+            str(Path(__file__).resolve().parent.parent), env.get("PYTHONPATH", ""))))
         lines: list[str] = []
         try:
             p = subprocess.Popen([sys.executable, "-c", code],
+                                 env=env,
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                  text=True)
             assert p.stdout is not None
