@@ -42,7 +42,8 @@ install -Dm644 data/type-as-you-speak.metainfo.xml "$STAGE/usr/share/metainfo/ty
 for size in 512 256 128 64 32; do
   install -Dm644 "data/icons/type-as-you-speak-$size.png" "$STAGE/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png"
 done
-install -m644 README.md LICENSE "$STAGE/usr/share/doc/type-as-you-speak/"
+install -m644 README.md LICENSE NOTICE COMMERCIAL.md "$STAGE/usr/share/doc/type-as-you-speak/"
+install -Dm644 LICENSES/MIT-legacy.txt "$STAGE/usr/share/doc/type-as-you-speak/LICENSES/MIT-legacy.txt"
 mkdir -p "$STAGE/DEBIAN" dist
 INSTALLED_SIZE="$(du -sk "$STAGE" | cut -f1)"
 {

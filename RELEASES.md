@@ -22,3 +22,5 @@ gh api --method POST repos/iller7/type-as-you-speak/releases/generate-notes -f t
 ```
 
 Inspect the generated PR range and any compatibility warnings before authorising a release. Generated notes list merged PRs; they do not prove completion of real-desktop or GPU testing.
+
+Licence changes apply to new releases. The AUR recipe still pins MIT v0.5.1; change its licence to AGPL-3.0-only together with the new version/source checksum for the first AGPL release. Include LICENSE, NOTICE, the preserved legacy MIT notice and commercial-enquiry information in distributions. Review third-party/model terms and corresponding-source obligations separately; do not replace existing MIT release assets.

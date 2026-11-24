@@ -77,7 +77,7 @@ Simplify in this order: keep one local command surface, share backend/setup step
 
 ## Licence decision
 
-VoiceStudio uses [AGPL-3.0](https://github.com/debpalash/VoiceStudio/blob/main/LICENSE); OpenMausBot uses [Apache-2.0](https://github.com/milind-soni/OpenMausBot/blob/main/LICENSE). Their badges express different policies. Our first-party source remains MIT while [T007](https://github.com/iller7/type-as-you-speak/issues/10) is unresolved.
+VoiceStudio uses [AGPL-3.0](https://github.com/debpalash/VoiceStudio/blob/main/LICENSE); OpenMausBot uses [Apache-2.0](https://github.com/milind-soni/OpenMausBot/blob/main/LICENSE). Their badges express different policies. The maintainer has selected AGPL-3.0-only for the public core with a separate written commercial-licensing path for rights he controls; see [licensing scope](licensing.md). The broader component and contributor-rights audit remains [T007](https://github.com/iller7/type-as-you-speak/issues/10).
 
 | Goal                                                                                | Licence direction to consider                                   |
 | ----------------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -87,7 +87,7 @@ VoiceStudio uses [AGPL-3.0](https://github.com/debpalash/VoiceStudio/blob/main/L
 
 These licences allow commercial use; AGPL is not a non-commercial licence. Its network condition is relevant to modified hosted services, not a blanket requirement to publish private local edits. MIT is reasonable if permissive reuse is our goal; AGPL is worth choosing if source reciprocity, including hosted forks, is the goal. A desktop-only harness does not gain a runtime feature by changing its licence.
 
-Before a switch, review contributor/copyright rights, future versus already-released code, dependencies and model terms. [Open Source Guides](https://opensource.guide/legal/#what-if-i-want-to-change-the-license-of-a-project) explains why relicensing needs care. Bundled ydotool is AGPL and Qt has [separate licence terms](https://doc.qt.io/qtforpython-6/licenses.html); the [GNU aggregation guidance](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation) shows why the way components interact matters. Inventory and review the actual artifacts rather than assuming an MIT badge settles redistribution obligations. Do not copy reference-project code or switch the project licence before that decision.
+For the selected policy and any future change, review contributor/copyright rights, future versus already-released code, dependencies and model terms. [Open Source Guides](https://opensource.guide/legal/#what-if-i-want-to-change-the-license-of-a-project) explains why relicensing needs care. Bundled ydotool is AGPL and Qt has [separate licence terms](https://doc.qt.io/qtforpython-6/licenses.html); the [GNU aggregation guidance](https://www.gnu.org/licenses/gpl-faq.html#MereAggregation) shows why the way components interact matters. Inventory and review the actual artifacts rather than assuming an MIT badge settles redistribution obligations. Do not copy reference-project code or assume an alternative commercial agreement covers third-party contributions.
 
 ## Badges, formatting and local guidance
 

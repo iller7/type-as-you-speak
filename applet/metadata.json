@@ -11,7 +11,7 @@
         "Description": "type-as-you-speak — speak, and it types into your window. The icon is grey while stopped and red while the dictation session is live. Left-click for status and start/stop; right-click for the full menu.",
         "Icon": "type-as-you-speak",
         "Id": "org.iller7.tays",
-        "License": "MIT",
+        "License": "AGPL-3.0-only",
         "Name": "type-as-you-speak",
         "Version": "0.5.2",
         "Website": "https://github.com/iller7/type-as-you-speak"

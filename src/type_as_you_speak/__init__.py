@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Faizal Sahebdin
+# SPDX-License-Identifier: AGPL-3.0-only
 """type-as-you-speak — Mac-like, type-as-you-speak dictation for Linux (Wayland & X11).
 
 Press a key and the words you speak are typed into the focused window as you
