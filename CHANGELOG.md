@@ -6,6 +6,17 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+- Fail closed on dependency advisories and scanner failures; audit the versions bundled in native packages.
+- Remove dictated text from normal and dry-run logs, restrict session state/log permissions, and replace broad input-group setup advice.
+
+### Build and maintenance
+- Refresh runtime/tool dependencies, commit a universal uv lockfile, and use Python 3.14 for development while testing 3.11–3.14.
+- Add shared code checks, Linux package build/install matrices, portable macOS/Windows checks, release metadata validation, checksums and provenance.
+- Include downstream build inputs in source archives, bind Debian packages to their Python ABI, use offline RPM inputs, and fix Arch build commands.
+- Add pinned developer tools, ownership, contribution/security policies, issue forms and weekly dependency updates. Reduce Qt to Essentials.
+- Pin experimental Flatpak sources and add an offline dependency generator; keep it out of published release assets pending desktop/sandbox validation.
+
 ### Added
 - **Settings GUI — `tays gui`** (optional `gui` extra: PySide6 + tomlkit):
   a window to pick models and options instead of editing TOML — General

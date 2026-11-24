@@ -36,7 +36,7 @@ works on any Wayland or X11 compositor.
 |---|---|---|
 | **Wayland or X11** (KDE, GNOME, Niri, Hyprland, …) | keystrokes are injected into the focused window | your compositor / window manager — either works |
 | **NVIDIA GPU** *(optional, recommended)* | fast, low-CPU transcription | your driver — otherwise it runs on CPU (slower) |
-| **Python 3.11+** | the engine | `python3` |
+| **Python 3.11–3.14** | the engine | `python3` |
 | **ffmpeg** | mic capture | `apt install ffmpeg` / `dnf install ffmpeg` |
 | **PulseAudio/PipeWire** (`pactl`) | mute output while the mic is live | usually present with any DE |
 | **ydotool** + its daemon | type into the focused window | `apt install ydotool` / `dnf install ydotool` |
@@ -334,7 +334,7 @@ and increase transcription rate, at a small accuracy cost.
 
 - **Nothing types, but I hear a "copied to clipboard" notification** — ydotool
   failed to inject. Check `systemctl --user status ydotoold`, that you're in
-  the `input` group (`id -nG`), and that `ydotool key F13` (or similar) works
+  the distro service and narrowly scoped `/dev/uinput` permissions (see SECURITY.md), and that `ydotool key F13` (or similar) works
   by hand.
 - **Keys are dropped or doubled** — raise `type_ms` to `10`.
 - **Words keep changing / punctuation is off** — raise `commit_lag_s` a touch
@@ -366,3 +366,9 @@ The engine is `src/type_as_you_speak/engine.py`; tunables live in
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+## Development and distribution
+
+Use `make setup`, `make check` and `make build` for a locked development environment, tests and package validation. See [CONTRIBUTING.md](CONTRIBUTING.md) for desktop QA, [packaging/README.md](packaging/README.md) for the distro/ABI matrix, and [SECURITY.md](SECURITY.md) for input-device and diagnostics privacy.
+
+Development uses Python 3.14; Linux compatibility checks cover 3.11–3.14. Dependencies are recorded in `uv.lock`. New native packages carry a distro-specific filename and include the settings window. Published v0.5.1 assets above predate this packaging change; future releases use the matching distro asset on the Releases page. Flatpak remains experimental. macOS and Windows checks cover portable code only; desktop dictation on those platforms is not available yet.

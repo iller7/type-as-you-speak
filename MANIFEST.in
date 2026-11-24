@@ -1,0 +1,14 @@
+include LICENSE README.md CHANGELOG.md RELEASES.md CONTRIBUTING.md SECURITY.md pyproject.toml uv.lock
+include install.sh Makefile mise.toml .python-version .dockerignore
+recursive-include src *.py
+recursive-include data *.desktop *.xml *.svg *.png
+recursive-include config *.toml *.txt
+recursive-include applet *.json *.qml *.svg
+recursive-include bin *.sh
+recursive-include scripts *.py *.sh
+recursive-include packaging *.sh *.spec *.json *.md *.Dockerfile control PKGBUILD
+recursive-include tests *.py
+prune .github
+prune dist
+prune build
+global-exclude __pycache__ *.py[cod] .DS_Store
