@@ -1,0 +1,11 @@
+# Privacy and network access
+
+Dictation uses a local Whisper model and local voice activity detection. The app does not provide a cloud transcription service. Initial model downloads and installing/updating dependencies need network access; cached models can be used offline. Downloads contact upstream hosting services and reveal ordinary connection metadata such as your IP address. The optional gTTS development tool is an online service, not part of local inference.
+
+The app sets `ORT_DISABLE_TELEMETRY=1` and `HF_HUB_DISABLE_TELEMETRY=1` before importing inference dependencies, including in the GUI's model-download subprocess. It also calls ONNX Runtime's event opt-out before model/session construction. These are enforced application defaults, including when inherited environment variables request telemetry. CLI help/version do not load inference libraries.
+
+The early ONNX environment setting matters: newer native builds can initialize telemetry during import, before the Python API is available. The API additionally covers legacy Windows events. See [ONNX Runtime's privacy documentation](https://github.com/microsoft/onnxruntime/blob/main/docs/Privacy.md) and [Hugging Face's telemetry controls](https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisabletelemetry).
+
+These controls are not a system firewall or a guarantee about every future dependency build. Importing this app into a process that already loaded inference dependencies cannot undo their earlier initialization. Use the normal `tays` entry point in a fresh process. OS-level egress verification across shipped builds/platforms remains tracked in [issue #45](https://github.com/iller7/type-as-you-speak/issues/45); Python socket guards do not cover native networking.
+
+Normal diagnostics contain model/device, timing and character counts rather than dictated text. Review existing logs before sharing them, especially logs from older releases. Audio capture and typing still cross local trust boundaries: dictation goes to whichever application has focus, and privileged input helpers must be restricted to your user. See [security guidance](https://github.com/iller7/type-as-you-speak/blob/master/SECURITY.md).

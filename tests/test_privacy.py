@@ -1,4 +1,8 @@
 import os
+from pathlib import Path
+import subprocess
+import shutil
+import sys
 from types import SimpleNamespace
 
 import numpy as np
@@ -71,3 +75,119 @@ def test_dry_run_does_not_require_linux_user_ids(monkeypatch):
     monkeypatch.delattr(os, "getuid", raising=False)
     type_text, _ = engine.make_type()
     assert type_text("portable dry run")
+
+
+@pytest.mark.parametrize("inherited", [None, "0"])
+def test_app_startup_disables_telemetry_before_loading_dependencies(inherited):
+    env = dict(os.environ)
+    for name in ("ORT_DISABLE_TELEMETRY", "HF_HUB_DISABLE_TELEMETRY"):
+        env.pop(name, None)
+        if inherited is not None:
+            env[name] = inherited
+    code = """
+import os, sys
+import type_as_you_speak
+assert os.environ['ORT_DISABLE_TELEMETRY'] == '1'
+assert os.environ['HF_HUB_DISABLE_TELEMETRY'] == '1'
+assert 'onnxruntime' not in sys.modules
+assert 'faster_whisper' not in sys.modules
+from huggingface_hub import constants
+assert constants.HF_HUB_DISABLE_TELEMETRY
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_vad_cannot_start_before_runtime_telemetry_is_disabled(monkeypatch):
+    runtime = SimpleNamespace(enabled=True)
+
+    def disable():
+        runtime.enabled = False
+
+    def vad():
+        assert not runtime.enabled, "VAD created before telemetry was disabled"
+        return "local VAD"
+
+    monkeypatch.setitem(
+        sys.modules, "onnxruntime", SimpleNamespace(disable_telemetry_events=disable)
+    )
+    monkeypatch.setitem(
+        sys.modules, "faster_whisper.vad", SimpleNamespace(get_vad_model=vad)
+    )
+    assert engine.get_vad() == "local VAD"
+
+
+def test_gui_download_child_uses_app_privacy_policy(monkeypatch, tmp_path):
+    from type_as_you_speak import gui
+
+    private = tmp_path / "private-deps"
+    shutil.copytree(Path(gui.__file__).parent, private / "type_as_you_speak")
+    monkeypatch.setattr(gui, "__file__", str(private / "type_as_you_speak/gui.py"))
+    monkeypatch.delenv("PYTHONPATH", raising=False)
+    monkeypatch.setenv("ORT_DISABLE_TELEMETRY", "0")
+    monkeypatch.setenv("HF_HUB_DISABLE_TELEMETRY", "0")
+    commands = []
+    worker = SimpleNamespace(
+        _dl_line="Downloading tiny.en…", _log_download=lambda *args: None
+    )
+
+    class Child:
+        stdout = []
+        returncode = 0
+
+        def wait(self, timeout):
+            return self.returncode
+
+    def launch(command, **kwargs):
+        commands.append((command, kwargs["env"]))
+        return Child()
+
+    with monkeypatch.context() as capture:
+        capture.setattr(gui.subprocess, "Popen", launch)
+        gui.SettingsWindow._download_worker(worker, "tiny.en")
+    assert worker._dl_result == (True, "done")
+    assert len(commands) == 1
+    (private / "onnxruntime.py").write_text(
+        "enabled = True\n"
+        "def disable_telemetry_events():\n"
+        "    global enabled\n"
+        "    enabled = False\n"
+    )
+    (private / "faster_whisper.py").write_text(
+        "import os, onnxruntime\n"
+        "assert os.environ['ORT_DISABLE_TELEMETRY'] == '1'\n"
+        "assert os.environ['HF_HUB_DISABLE_TELEMETRY'] == '1'\n"
+        "assert not onnxruntime.enabled\n"
+        "def WhisperModel(*args, **kwargs): pass\n"
+    )
+    command, env = commands[0]
+    # Hide the developer installation; only the private bundle may supply the app.
+    result = subprocess.run(
+        [command[0], "-S", *command[1:]],
+        env=env,
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("boundary", ["get_vad", "build_model"])
+def test_inference_fails_closed_when_runtime_opt_out_fails(monkeypatch, boundary):
+    def broken_opt_out():
+        raise RuntimeError("telemetry opt-out unavailable")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "onnxruntime",
+        SimpleNamespace(disable_telemetry_events=broken_opt_out),
+    )
+    with pytest.raises(RuntimeError, match="telemetry opt-out unavailable"):
+        getattr(engine, boundary)()

@@ -40,8 +40,12 @@ from pathlib import Path
 # rest of this file can keep reading plain module globals.
 try:
     from . import config as _cfgmod
+    from . import privacy as _privacy
 except ImportError:      # also allow running the file directly
     import config as _cfgmod
+    import privacy as _privacy
+
+_privacy.configure_environment()
 
 CFG = _cfgmod.load_config()
 
@@ -406,6 +410,7 @@ def build_model():
     narrows the per-round CPU spike; the GPU does the actual ASR, so capping
     barely costs speed. On a CPU model the threads *are* the compute, so we
     leave that at the library default."""
+    _privacy.disable_inference_telemetry()
     from faster_whisper import WhisperModel
     device = CFG["device"]
     name = CFG["model_name"]
@@ -453,6 +458,7 @@ def build_model():
 
 
 def get_vad():
+    _privacy.disable_inference_telemetry()
     from faster_whisper.vad import get_vad_model
     return get_vad_model()
 
@@ -691,6 +697,7 @@ def run_session(reader, t0):
         Ollama serving on the same GPU). small.en int8: good quality, and the
         CPU isn't the scarce resource here."""
         if _cpu_fallback[0] is None:
+            _privacy.disable_inference_telemetry()
             from faster_whisper import WhisperModel
             _cpu_fallback[0] = WhisperModel("small.en", device="cpu",
                                             compute_type="int8")
