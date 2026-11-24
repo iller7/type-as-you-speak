@@ -15,6 +15,7 @@ from pathlib import Path
 
 # Built-in defaults (identical to the original hard-coded values).
 DEFAULTS = {
+    "strict_offline": True,
     # model / device
     "model_name": "small.en",       # default: good everyday balance (tiny/base/small.en, medium.en, large-v3, …)
     "language": "en",
@@ -82,6 +83,7 @@ def _env_bool(raw: str) -> bool:
 
 # Environment variable -> config key (quick overrides).
 _ENV_MAP = {
+    "DICTATE_STRICT_OFFLINE": ("strict_offline", lambda raw: raw.strip().lower() not in ("0", "false", "no", "off")),
     "DICTATE_MODEL": ("model_name", str),
     "DICTATE_LANG": ("language", str),
     "DICTATE_DEVICE": ("device", str),
@@ -136,4 +138,6 @@ def load_config() -> dict:
                 cfg[key] = conv(raw)
             except (ValueError, TypeError):
                 pass
+    if not isinstance(cfg["strict_offline"], bool):
+        cfg["strict_offline"] = True
     return cfg

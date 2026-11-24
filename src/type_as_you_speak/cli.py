@@ -30,6 +30,7 @@ from pathlib import Path
 
 from . import __version__
 from . import config as _config
+from . import privacy as _privacy
 
 
 # ---- locations ----------------------------------------------------------------
@@ -414,10 +415,14 @@ def _status_dict() -> dict:
         "state": "listening" if running else "stopped",
         "model": cfg["model_name"],
         "device": cfg["device"],
+        "strict_offline": None if running else cfg["strict_offline"],
+        "network_guard": None,
     }
     if running:
         live = _read_live_state(pid)
         if live:
+            st["strict_offline"] = live.get("strict_offline")
+            st["network_guard"] = live.get("network_guard")
             if live.get("model"):
                 st["model"] = live["model"]
             if live.get("device"):
@@ -433,6 +438,14 @@ def _status_dict() -> dict:
 
 
 def cmd_start(_args) -> int:
+    strict_offline = _config.load_config()["strict_offline"]
+    if strict_offline:
+        from . import offline
+        try:
+            offline.enforce()
+        except RuntimeError as error:
+            print(str(error), file=sys.stderr)
+            return 2
     _prepare_env()
     running, running_pid = _is_running()
     if running:
@@ -456,6 +469,8 @@ def cmd_start(_args) -> int:
     _duck_on(os.getpid())
     try:
         from . import engine
+        # Use the policy chosen at startup even if the settings file changes.
+        engine.CFG["strict_offline"] = strict_offline
         return engine.main()
     finally:
         _remove_pid()
@@ -503,7 +518,7 @@ def cmd_toggle(_args) -> int:
         return cmd_stop(_args)
 
     # Start a detached session so this keypress command returns immediately.
-    env = dict(os.environ)
+    env = _privacy.python_environment()
     if getattr(_args, "model", None):
         env["DICTATE_MODEL"] = _args.model   # the engine picks this up via DICTATE_MODEL
     try:
@@ -579,11 +594,27 @@ def _session() -> str:
     return "none"
 
 
+def cmd_download(_args) -> int:
+    model = getattr(_args, "model", None) or _config.load_config()["model_name"]
+    try:
+        _privacy.disable_inference_telemetry()
+        from faster_whisper.utils import download_model
+        download_model(model)
+    except Exception as error:
+        print(f"Model download failed ({type(error).__name__}). Check connectivity and the model name.", file=sys.stderr)
+        return 1
+    print("Model downloaded. Strict offline dictation can now use the cached model.")
+    return 0
+
+
 def cmd_setup(_args) -> int:
     print(f"type-as-you-speak {__version__} — setup check\n")
 
     sess = _session()
     checks: list[tuple[str, bool, str]] = []
+    import ctypes.util
+    checks.append(("Strict offline protection (libseccomp)", bool(ctypes.util.find_library("seccomp")),
+                   "libseccomp2 on Debian/Ubuntu; libseccomp on Fedora/Arch"))
     checks.append(("GUI session (Wayland or X11)", sess != "none",
                    "run this inside a desktop session (Wayland or X11)"))
     for name, exe, hint in (
@@ -625,7 +656,7 @@ def cmd_setup(_args) -> int:
         print(f"  [ok  ] Whisper model '{model}' is cached")
     else:
         print(f"  [--  ] Whisper model '{model}' not cached yet "
-              f"(downloads ~1.5 GB on first run)")
+              f"(use `tays download` or the GUI Download button)")
 
     # ydotool daemon — required for key injection. It may be a systemd *user*
     # service or started by your compositor/login; all we need is that it's
@@ -665,8 +696,8 @@ def cmd_setup(_args) -> int:
         sample = Path(__file__).resolve().parents[2] / "config" / "default.toml"
         try:
             ucfg.parent.mkdir(parents=True, exist_ok=True)
-            ucfg.write_text(sample.read_text() if sample.is_file()
-                            else _sample_config_text())
+            ucfg.write_text(sample.read_text(encoding="utf-8") if sample.is_file()
+                            else _sample_config_text(), encoding="utf-8")
             print(f"\n  [ok  ] wrote sample config -> {ucfg}\n"
                   f"          (edit it to change model, device, lag, phrases, …)")
         except OSError as e:
@@ -691,6 +722,8 @@ def cmd_setup(_args) -> int:
     print("\nKeybind: bind your Dictation key to a *toggle* (press to start, press again to stop).")
     print("  Run `tays keybind` for copy-paste steps for your desktop (KDE/GNOME/Sway/…).")
     print(f"\nThen just try:  tays start   (or:  tays status)")
+    if getattr(_args, "download_model", False):
+        return cmd_download(argparse.Namespace(model=None))
     return 0
 
 
@@ -702,6 +735,8 @@ def _sample_config_text() -> str:
             lines.append("hallucination_tails = [")
             lines += [f"    {v!r}," for v in val]
             lines.append("]")
+        elif isinstance(val, bool):
+            lines.append(f"{key} = {str(val).lower()}")
         else:
             lines.append(f"{key} = {val!r}")
     return "\n".join(lines) + "\n"
@@ -836,7 +871,7 @@ def cmd_gui(_args) -> int:
             subprocess.Popen(
                 [sys.executable, "-m", "type_as_you_speak", "gui"],
                 stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                start_new_session=True)
+                start_new_session=True, env=_privacy.python_environment())
             return 0
         except Exception as e:
             print(f"type-as-you-speak: failed to launch GUI: {e!r}",
@@ -883,7 +918,12 @@ def build_parser() -> argparse.ArgumentParser:
     spst.add_argument("--json", action="store_true",
                       help="print machine-readable JSON status on stdout")
     spst.set_defaults(func=cmd_status)
-    sub.add_parser("setup", help="check requirements, enable ydotool, write sample config").set_defaults(func=cmd_setup)
+    setup = sub.add_parser("setup", help="check requirements and write sample config")
+    setup.add_argument("--download-model", action="store_true", help="download the configured model during setup")
+    setup.set_defaults(func=cmd_setup)
+    download = sub.add_parser("download", help="explicitly download a model for offline dictation")
+    download.add_argument("model", nargs="?", help="model name; defaults to your configured model")
+    download.set_defaults(func=cmd_download)
     sub.add_parser("models", help="list the available Whisper models and sizes").set_defaults(func=cmd_models)
     gp = sub.add_parser("gui", help="open the settings window (optional 'gui' extra)")
     gp.add_argument("--detach", action="store_true",

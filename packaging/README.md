@@ -75,3 +75,7 @@ For Python 3.15, the build creates a system-site-enabled build environment and d
 The build validates runtime-visible dependencies with `python -m pip check`; uv's own package check intentionally does not include inherited system packages. Audit the installed bundle plus the native ONNX Python dependency closure with `scripts/audit.py --system-package onnxruntime`; missing providers and native/bundled shadowing fail closed. The Python advisory scan remains separate from Fedora's OS-library update/advisory process.
 
 The verification stage checks clean RPM installation and offscreen Qt, then executes the real-model EOF recognition cases against installed application code. It compares the ONNX version seen in the runtime image with the verification environment. The RPM/SRPM is exported only after those checks and the strict audit pass. This remains an upstream bundled RPM, not a Fedora-repository compliance claim; publication remains explicit.
+
+### Strict offline runtime dependency
+
+The default strict-offline process guard requires `libseccomp2` in DEB builds/runtime and `libseccomp` in Fedora builds/runtime. It fails closed if unavailable. The pinned legacy AUR recipe still describes the old MIT release; add this runtime dependency together with its first AGPL release version/licence/checksum update. Experimental Flatpak must also verify the library and filter availability inside its sandbox before publication; its GUI model-download capability does not establish strict engine protection.

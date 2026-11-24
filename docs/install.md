@@ -4,6 +4,8 @@ title: "Installation"
 
 # Installation
 
+Strict-offline controls describe the current source checkout. Existing v0.5.1 release binaries predate these protections; no updated release has been published yet.
+
 ## Requirements
 
 | What                                                 | Why                                             | Install                                          |
@@ -19,7 +21,7 @@ title: "Installation"
 
 For source installs, verify the client/daemon version and current distro availability. Debian 12 supplies an older ydotool, while Debian 13 may require backports or a reviewed source build. The new Debian/Ubuntu packages include private compatible tools. Source-installer validation is tracked under [T025](https://github.com/iller7/type-as-you-speak/issues/18).
 
-The Whisper model (~1.5 GB for `medium.en`) is downloaded automatically on first run and cached under `~/.cache/huggingface`.
+Download your selected Whisper model before the first strict-offline session with `tays download` or the GUI Download button. Models are cached under the configured Hugging Face cache (by default `~/.cache/huggingface`); model size depends on your selection.
 
 ## Install
 
@@ -91,3 +93,5 @@ Package installs (`.deb`, and later AUR/Flatpak/Copr) update with their channel 
 Fedora 45 uses Python 3.15 with Fedora's native ONNX Runtime package. Choose an RPM built for Fedora 45; installing it pulls in the native runtime dependency. Older releases may not provide this asset yet. To build the current checkout, run `make package-rpm` with Docker available; output is under `dist/packages/fedora/`, and filenames identify `fc45`. Fedora 44 remains a separate CI/build target.
 
 The regular source installer still expects a PyPI-compatible Python 3.11–3.14 environment. On Fedora 45, use the native RPM route for now; source-installer adaptation is tracked in [#18](https://github.com/iller7/type-as-you-speak/issues/18). The package uses the system interpreter without replacing it. See the [distribution guide](https://github.com/iller7/type-as-you-speak/blob/master/packaging/README.md) for native/bundled dependency scope.
+
+Strict offline dictation is enabled by default. Before the first session, run `tays download` or use the GUI Download button. Source installations also need `libseccomp2` (Debian/Ubuntu) or `libseccomp` (Fedora/Arch). Model downloads remain available during `tays setup --download-model`; see [privacy controls](privacy.md).
