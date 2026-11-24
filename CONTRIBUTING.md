@@ -18,6 +18,8 @@ The K8s repository's practices are adapted here as pinned tools, dependency auto
 
 Use small pull requests with a Conventional Commit title and an associated GitHub issue. Use `Refs #123` for partial progress and `Closes #123` only when all acceptance criteria are met. Labels organise the automatically generated release notes; unlabelled PRs remain in the catch-all category. Add regression tests for behaviour changes. Describe test results, compatibility, privacy implications and rollback in the PR template. Do not create agent plans or workflow state in the repository. Do not add transcript/audio fixtures from real users.
 
+See the [testing matrix](docs/testing.md) for Linux desktop families, Windows/macOS targets, automated coverage and hardware-dependent gaps. The product target spans all three operating systems; current desktop support and future targets are different claims.
+
 ## Verification boundaries
 
 Unit tests use synthetic audio arrays and stub the model and input boundary; they never download speech models or type into the desktop. macOS/Windows jobs test portable Python code, dependency installation and package metadata. They do not imply working desktop dictation on those platforms. Linux container jobs test native package build, installation, imports and an offscreen Qt launch. Arch currently has a package-build check; distro/AUR inference dependencies must be available before desktop validation.
