@@ -1,4 +1,4 @@
-FROM fedora:44@sha256:15da97ed9aa94dd3d92c3925eb89520f6c80e07ea7ee24cba848d1f8b6912b3e AS build
+FROM fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c AS build
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 QT_QPA_PLATFORM=offscreen
 RUN dnf install -y python3-devel python3-pip rpm-build findutils gcc \
     desktop-file-utils appstream && dnf clean all
@@ -15,7 +15,7 @@ RUN uv run --locked pytest && uv run --locked python -m build --no-isolation && 
 RUN mkdir -p /root/rpmbuild/SOURCES && cp dist/*.tar.gz /root/rpmbuild/SOURCES/ && \
     tar -czf /root/rpmbuild/SOURCES/wheelhouse.tar.gz -C dist/wheelhouse .
 RUN rpmbuild -ba packaging/fedora/type-as-you-speak.spec
-FROM fedora:44@sha256:15da97ed9aa94dd3d92c3925eb89520f6c80e07ea7ee24cba848d1f8b6912b3e AS smoke
+FROM fedora:45@sha256:a7d72ba2745b100a3351087472e5ee7b2450af7cf331e7673007e3817612839c AS smoke
 ENV QT_QPA_PLATFORM=offscreen
 COPY --from=build /root/rpmbuild/RPMS/ /packages/
 RUN dnf install -y /packages/*/*.rpm && tays --version && tays --help && \
