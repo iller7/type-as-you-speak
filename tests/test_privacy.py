@@ -80,15 +80,18 @@ def test_dry_run_does_not_require_linux_user_ids(monkeypatch):
 @pytest.mark.parametrize("inherited", [None, "0"])
 def test_app_startup_disables_telemetry_before_loading_dependencies(inherited):
     env = dict(os.environ)
-    for name in ("ORT_DISABLE_TELEMETRY", "HF_HUB_DISABLE_TELEMETRY"):
+    for name in ("ORT_DISABLE_TELEMETRY", "HF_HUB_DISABLE_TELEMETRY", "DO_NOT_TRACK"):
         env.pop(name, None)
         if inherited is not None:
             env[name] = inherited
+    env["HF_XET_TELEMETRY_ENABLED"] = "1"
     code = """
 import os, sys
 import type_as_you_speak
 assert os.environ['ORT_DISABLE_TELEMETRY'] == '1'
 assert os.environ['HF_HUB_DISABLE_TELEMETRY'] == '1'
+assert os.environ['DO_NOT_TRACK'] == '1'
+assert os.environ['HF_XET_TELEMETRY_ENABLED'] == '0'
 assert 'onnxruntime' not in sys.modules
 assert 'faster_whisper' not in sys.modules
 from huggingface_hub import constants
@@ -129,6 +132,9 @@ def test_gui_download_child_uses_app_privacy_policy(monkeypatch, tmp_path):
     private = tmp_path / "private-deps"
     shutil.copytree(Path(gui.__file__).parent, private / "type_as_you_speak")
     monkeypatch.setattr(gui, "__file__", str(private / "type_as_you_speak/gui.py"))
+    monkeypatch.setattr(
+        gui.privacy, "__file__", str(private / "type_as_you_speak/privacy.py")
+    )
     monkeypatch.delenv("PYTHONPATH", raising=False)
     monkeypatch.setenv("ORT_DISABLE_TELEMETRY", "0")
     monkeypatch.setenv("HF_HUB_DISABLE_TELEMETRY", "0")
@@ -163,6 +169,8 @@ def test_gui_download_child_uses_app_privacy_policy(monkeypatch, tmp_path):
         "import os, onnxruntime\n"
         "assert os.environ['ORT_DISABLE_TELEMETRY'] == '1'\n"
         "assert os.environ['HF_HUB_DISABLE_TELEMETRY'] == '1'\n"
+        "assert os.environ['DO_NOT_TRACK'] == '1'\n"
+        "assert os.environ['HF_XET_TELEMETRY_ENABLED'] == '0'\n"
         "assert not onnxruntime.enabled\n"
         "def WhisperModel(*args, **kwargs): pass\n"
     )

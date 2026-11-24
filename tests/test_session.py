@@ -173,6 +173,7 @@ def test_engine_failure_closes_reader_restores_audio_and_clears_state(
     monkeypatch, failure
 ):
     cleaned = []
+    monkeypatch.setattr(engine, "CFG", {**engine.CFG, "strict_offline": False})
     monkeypatch.setattr(engine.signal, "signal", lambda *a: None)
     monkeypatch.setattr(
         engine,
@@ -180,7 +181,7 @@ def test_engine_failure_closes_reader_restores_audio_and_clears_state(
         lambda: SimpleNamespace(close=lambda: cleaned.append("reader")),
     )
 
-    def fail(*args):
+    def fail(*args, **kwargs):
         raise failure
 
     monkeypatch.setattr(engine, "run_session", fail)

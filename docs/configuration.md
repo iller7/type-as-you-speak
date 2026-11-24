@@ -13,6 +13,7 @@ cp config/default.toml ~/.config/type-as-you-speak/config.toml
 
 | key                          | default    | what it does                                                                                                                                 |
 | ---------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strict_offline` | `true` | Cached models only and Linux process network protection; download models separately. Changes require restarting dictation. |
 | `model_name`                 | `small.en` | any faster-whisper model (`tiny.en`…`medium.en`…`large-v3`); see `tays models`                                                               |
 | `device`                     | `auto`     | `auto` = GPU if it fits else CPU · `cuda` = force NVIDIA GPU · `rocm` = force AMD GPU (needs the ROCm CTranslate2 build) · `cpu` = force CPU |
 | `language`                   | `en`       | Whisper language code                                                                                                                        |

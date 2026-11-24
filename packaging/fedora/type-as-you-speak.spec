@@ -14,6 +14,7 @@ Source1:        wheelhouse.tar.gz
 # Their OS dependencies are declared below and checked in a clean runtime image.
 %global __requires_exclude_from ^/opt/%{name}/pydeps/.*$
 %global __provides_exclude_from ^/opt/%{name}/pydeps/.*$
+BuildRequires:  libseccomp
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-rpm-macros
@@ -29,6 +30,7 @@ Requires:       %{native_system_requires}
 Requires:       ydotool
 Requires:       wl-clipboard
 Requires:       xclip
+Requires:       libseccomp
 Requires:       ffmpeg-free
 Requires:       pulseaudio-utils
 Requires:       libnotify

@@ -17,6 +17,9 @@ def main():
         required=not os.environ.get("TAYS_TEST_MODEL_DIR"),
     )
     args = parser.parse_args()
+    from type_as_you_speak.privacy import configure_environment
+
+    configure_environment()
     from huggingface_hub import hf_hub_download
 
     model = manifest()["model"]

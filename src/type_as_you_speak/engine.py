@@ -41,9 +41,11 @@ from pathlib import Path
 try:
     from . import config as _cfgmod
     from . import privacy as _privacy
+    from . import offline as _offline
 except ImportError:      # also allow running the file directly
     import config as _cfgmod
     import privacy as _privacy
+    import offline as _offline
 
 _privacy.configure_environment()
 
@@ -388,6 +390,16 @@ def _preload_nvidia():
                 pass
 
 
+def _load_model(name, **options):
+    _privacy.disable_inference_telemetry()
+    from faster_whisper import WhisperModel
+    from huggingface_hub.errors import LocalEntryNotFoundError
+    try:
+        return WhisperModel(name, local_files_only=CFG.get("strict_offline", True), **options)
+    except LocalEntryNotFoundError as error:
+        raise RuntimeError("Model is not cached. Use the GUI Download button or `tays download` before strict offline dictation.") from error
+
+
 def build_model():
     """Pick a model + device from config.
 
@@ -410,14 +422,12 @@ def build_model():
     narrows the per-round CPU spike; the GPU does the actual ASR, so capping
     barely costs speed. On a CPU model the threads *are* the compute, so we
     leave that at the library default."""
-    _privacy.disable_inference_telemetry()
-    from faster_whisper import WhisperModel
     device = CFG["device"]
     name = CFG["model_name"]
     cpu_threads = int(CFG["cpu_threads"])
 
     if device == "cpu":
-        m = WhisperModel(name, device="cpu", compute_type="int8")
+        m = _load_model(name, device="cpu", compute_type="int8")
         _log(f"model: {name} on cpu (int8) [device=cpu]")
         RUNTIME.update(model=name, device="cpu")
         return m
@@ -430,7 +440,7 @@ def build_model():
     ladder = [name] + [n for n in ("medium.en", "small.en", "base.en") if n != name]
     for cand in ladder:
         try:
-            m = WhisperModel(cand, device="cuda", compute_type="float16",
+            m = _load_model(cand, device="cuda", compute_type="float16",
                              cpu_threads=cpu_threads)
             _log(f"model: {cand} on {gpu_label} (cpu_threads={cpu_threads})"
                  + (f" [actual GPU: {actual_gpu}]" if actual_gpu else ""))
@@ -451,7 +461,7 @@ def build_model():
             "support needs CTranslate2's ROCm wheel — the standard pip wheel "
             "is CUDA/CPU only. See https://github.com/OpenNMT/CTranslate2/releases "
             "for the ROCm build (then reinstall faster-whisper against it).")
-    m = WhisperModel(name, device="cpu", compute_type="int8")
+    m = _load_model(name, device="cpu", compute_type="int8")
     _log(f"model: {name} on cpu (int8)")
     RUNTIME.update(model=name, device="cpu")
     return m
@@ -642,15 +652,30 @@ def notify_done():
 
 
 def main():
+    if CFG.get("strict_offline", True):
+        try:
+            _offline.enforce()
+        except RuntimeError as error:
+            _log(str(error))
+            return 2
+    RUNTIME.update(strict_offline=bool(CFG.get("strict_offline", True)), network_guard=_offline.active())
     signal.signal(signal.SIGTERM, _on_signal)
     signal.signal(signal.SIGINT, _on_signal)
 
     t0 = time.time()
+    prepared = None
+    if CFG.get("strict_offline", True):
+        try:
+            _preload_nvidia()
+            prepared = (build_model(), get_vad())
+        except RuntimeError as error:
+            _log(str(error))
+            return 2
     reader = AudioReader()
     _log(f"audio source: {os.environ.get('DICTATE_WAV', 'mic')}")
     exit_code = 3
     try:
-        exit_code = run_session(reader, t0)
+        exit_code = run_session(reader, t0, prepared=prepared)
     finally:
         reader.close()
         unmute_out()
@@ -658,12 +683,14 @@ def main():
     return exit_code
 
 
-def run_session(reader, t0):
+def run_session(reader, t0, prepared=None):
 
-    _preload_nvidia()
-    model = build_model()
+    if prepared is None:
+        _preload_nvidia()
+        model, vad = build_model(), get_vad()
+    else:
+        model, vad = prepared
     _write_live_state()   # status/GUI/applet can now report the exact device
-    vad = get_vad()
     _log(f"engine pid={os.getpid()}")
 
     def warmup():
@@ -697,9 +724,7 @@ def run_session(reader, t0):
         Ollama serving on the same GPU). small.en int8: good quality, and the
         CPU isn't the scarce resource here."""
         if _cpu_fallback[0] is None:
-            _privacy.disable_inference_telemetry()
-            from faster_whisper import WhisperModel
-            _cpu_fallback[0] = WhisperModel("small.en", device="cpu",
+            _cpu_fallback[0] = _load_model("small.en", device="cpu",
                                             compute_type="int8")
             RUNTIME.update(model="small.en", device="cpu")
             _write_live_state()

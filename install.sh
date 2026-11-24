@@ -122,6 +122,9 @@ fi
   fail "failed to install the package into the venv"; exit 1; }
 "$VENV/bin/tays" --version >/dev/null 2>&1 || {
   fail "the 'tays' command failed to run after install"; exit 1; }
+if ! "$VENV/bin/python" -c 'import ctypes.util, sys; sys.exit(not ctypes.util.find_library("seccomp"))'; then
+  fail "strict offline dictation needs libseccomp2 (Debian/Ubuntu) or libseccomp (Fedora/Arch)"
+fi
 ok "installed type-as-you-speak ($("$VENV/bin/tays" --version 2>/dev/null | sed 's/^.* //')), editable from $SCRIPT_DIR"
 
 # GPU runtime: ctranslate2's CUDA build expects the NVIDIA cuBLAS / cuDART /
@@ -263,6 +266,7 @@ fi
 echo
 say "Done. Try it now:"
 echo
+echo "    tays download     # download the selected model before strict offline dictation"
 echo "    tays start        # run a live session (mutes output; Ctrl-C to stop)"
 echo "    tays status       # is it running, on which model?"
 echo "    tays setup        # re-check requirements + enable the daemon"
