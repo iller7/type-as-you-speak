@@ -10,8 +10,13 @@ if [ -e "$OUT" ]; then
 fi
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
-uv export --locked --no-dev --extra gui --no-emit-project --output-file "$OUT/requirements.txt" >/dev/null
-"$PY" -m pip download --only-binary=:all: --require-hashes -r "$OUT/requirements.txt" -d "$OUT"
+EXPORT_ARGS=()
+if [ "${TAYS_NATIVE_ONNX:-0}" = 1 ]; then
+  EXPORT_ARGS+=(--no-emit-package onnxruntime)
+fi
+uv export --locked --no-dev --extra gui --no-emit-project "${EXPORT_ARGS[@]}" --output-file "$OUT/requirements.txt" >/dev/null
+# The lock export is complete; do not re-resolve a distro-supplied provider.
+"$PY" -m pip download --no-deps --only-binary=:all: --require-hashes -r "$OUT/requirements.txt" -d "$OUT"
 uv run --locked python -m build --no-isolation --wheel --outdir "$OUT/app"
 mv "$OUT"/app/*.whl "$OUT/"
 rmdir "$OUT/app"

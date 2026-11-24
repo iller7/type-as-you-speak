@@ -18,6 +18,12 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-rpm-macros
 BuildRequires:  %{native_system_requires}
+%if 0%{?fedora} >= 45
+BuildRequires:  python3-onnxruntime >= 1.26
+BuildRequires:  python3-onnxruntime < 2
+Requires:       python3-onnxruntime >= 1.26
+Requires:       python3-onnxruntime < 2
+%endif
 Requires:       python(abi) = %{python3_version}
 Requires:       %{native_system_requires}
 Requires:       ydotool
@@ -59,6 +65,9 @@ for size in 512 256 128 64 32; do
   install -Dm644 data/icons/type-as-you-speak-$size.png %{buildroot}/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png
 done
 install -Dm644 README.md %{buildroot}/usr/share/doc/%{name}/README.md
+%if 0%{?fedora} >= 45
+rpm -q python3-onnxruntime > %{buildroot}/usr/share/doc/%{name}/native-onnx-build.txt
+%endif
 install -Dm644 LICENSE %{buildroot}/usr/share/licenses/%{name}/LICENSE
 install -Dm644 NOTICE %{buildroot}/usr/share/licenses/%{name}/NOTICE
 install -Dm644 COMMERCIAL.md %{buildroot}/usr/share/doc/%{name}/COMMERCIAL.md
