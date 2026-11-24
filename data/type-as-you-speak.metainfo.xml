@@ -54,6 +54,20 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.5.2" date="2026-11-24" type="stable">
+      <description>
+        <p>
+          First release under the AGPL-3.0-only public-core licence. Strict
+          offline dictation is enabled by default: Linux sessions install a
+          process-local network guard before the microphone starts, and
+          models must be downloaded first with the GUI,
+          <code>tays download</code> or <code>tays setup --download-model</code>.
+          Inference telemetry is disabled before dependencies initialise,
+          the cross-platform test suite is expanded, and the documentation
+          site now covers privacy, testing and licensing.
+        </p>
+      </description>
+    </release>
     <release version="0.5.1" date="2026-11-23" type="stable">
       <description>
         <p>

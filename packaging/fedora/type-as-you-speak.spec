@@ -3,7 +3,7 @@
 %global native_system_requires dbus-libs fontconfig libstdc++ mesa-libEGL libglvnd-opengl libglvnd-glx libxkbcommon-x11 xcb-util-cursor
 
 Name:           type-as-you-speak
-Version:        0.5.1
+Version:        0.5.2
 Release:        1%{?dist}
 Summary:        Local dictation for Linux (Wayland and X11)
 License:        AGPL-3.0-only
@@ -89,5 +89,7 @@ PYTHONPATH=%{buildroot}/opt/%{name}/pydeps python3 -c 'import numpy, onnxruntime
 %license /usr/share/licenses/%{name}
 
 %changelog
+* Tue Nov 24 2026 Faizal Sahebdin <faizal.sahebdin@gmail.com> - 0.5.2-1
+- First AGPL-3.0-only release: strict offline dictation by default, telemetry opt-outs, expanded test suite and documentation.
 * Tue Nov 24 2026 Faizal Sahebdin <faizal.sahebdin@gmail.com> - 0.5.1-1
 - Build from a locked offline wheelhouse and check native imports.
