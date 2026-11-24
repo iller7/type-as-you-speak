@@ -20,31 +20,13 @@ tays keybind
 
 Bind `tays toggle` to a spare key. Press it to start dictation and press it again to stop. The source installer uses a user-owned Python environment and reports missing OS prerequisites. See the [installation guide](docs/install.md) for package versions, optional GUI setup, requirements and updates.
 
-## Support and verification
+## Documentation and support
 
-| Area            | Current position                                                                                                           |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Linux           | KDE/GNOME, Wayland/X11 integration targets; real-desktop QA remains tracked in the backlog                                 |
-| Native packages | CI builds and checks Debian 12/13, Ubuntu 24.04/26.04 and Fedora 44; select the asset matching the distro and architecture |
-| Arch            | PKGBUILD build check; package-manager publication and full runtime validation are separate                                 |
-| Flatpak         | Experimental; excluded from release publishing                                                                             |
-| macOS / Windows | Portable-code CI only; desktop dictation ports remain open                                                                 |
-| Inference       | CPU or compatible GPU; driver/backend compatibility and hardware QA matter                                                 |
+[Documentation website](https://iller7.github.io/type-as-you-speak/) · [Installation](docs/install.md) · [Usage](docs/usage.md) · [Troubleshooting](docs/troubleshooting.md)
 
-CI results and published releases can represent different commits. The [distribution guide](packaging/README.md) records the ABI constraints, tested scope and channel limitations.
+Linux is the current target. Native-package CI and real-desktop verification have different scopes; see the [distribution guide](packaging/README.md). Flatpak is experimental, and macOS/Windows desktop ports remain open.
 
-## Guides
-
-- [Installation and updates](docs/install.md)
-- [Usage, settings and KDE panel applet](docs/usage.md)
-- [Configuration and GPU/CPU selection](docs/configuration.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [How the engine works](docs/architecture.md)
-- [Development and verification](CONTRIBUTING.md)
-- [Security and input-device permissions](SECURITY.md)
-- [Release process](RELEASES.md)
-- [Prioritised backlog and status](TODO.md)
-- [Project direction and researched options](docs/project-direction.md)
+[GitHub Issues](https://github.com/iller7/type-as-you-speak/issues) owns tasks and status; [TODO.md](TODO.md) is the concise roadmap. [GitHub Releases](https://github.com/iller7/type-as-you-speak/releases) contains downloads and the automatic changelog.
 
 ## Contributing
 

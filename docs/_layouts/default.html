@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="{{ site.description | escape }}" />
+    <title>{{ page.title | default: site.title | escape }}</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+        line-height: 1.65;
+      }
+      body {
+        margin: 0 auto;
+        max-width: 72rem;
+        padding: 1.5rem;
+        color: #172a3a;
+        background: #f7fafc;
+      }
+      a {
+        color: #075ea8;
+        text-underline-offset: 0.2em;
+      }
+      a:focus-visible {
+        outline: 3px solid #bf6400;
+        outline-offset: 4px;
+      }
+      header {
+        border-bottom: 1px solid #b8cbd9;
+        padding-bottom: 1rem;
+      }
+      header > a {
+        font-size: 1.2rem;
+        font-weight: 750;
+        text-decoration: none;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.3rem;
+        margin-top: 0.8rem;
+      }
+      main {
+        max-width: 58rem;
+        margin: 3rem auto;
+        overflow-wrap: anywhere;
+      }
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+        letter-spacing: -0.025em;
+      }
+      h1 {
+        font-size: clamp(2rem, 5vw, 3.6rem);
+      }
+      h2 {
+        margin-top: 2.5rem;
+      }
+      pre {
+        padding: 1rem;
+        overflow-x: auto;
+        border: 1px solid #b8cbd9;
+        border-radius: 0.5rem;
+      }
+      code {
+        font-size: 0.92em;
+      }
+      table {
+        display: block;
+        overflow-x: auto;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border: 1px solid #b8cbd9;
+        padding: 0.6rem;
+        text-align: left;
+      }
+      footer {
+        border-top: 1px solid #b8cbd9;
+        padding-top: 1rem;
+        font-size: 0.9rem;
+      }
+      .skip {
+        position: absolute;
+        left: -10000px;
+      }
+      .skip:focus {
+        position: static;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #101c25;
+          color: #e7eff5;
+        }
+        a {
+          color: #8cc9ff;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#content">Skip to content</a>
+    <header>
+      <a href="{{ '/' | relative_url }}">type-as-you-speak</a>
+      <nav aria-label="Main navigation">
+        <a href="{{ '/install.html' | relative_url }}">Install</a>
+        <a href="{{ '/usage.html' | relative_url }}">User guide</a>
+        <a href="{{ '/troubleshooting.html' | relative_url }}"
+          >Troubleshooting</a
+        >
+        <a href="https://github.com/iller7/type-as-you-speak/releases"
+          >Downloads and changelog</a
+        >
+        <a href="https://github.com/iller7/type-as-you-speak/issues"
+          >Issues and roadmap</a
+        >
+      </nav>
+    </header>
+    <main id="content">{{ content }}</main>
+    <footer>
+      Local inference. No cloud LLM account required. No site analytics or
+      tracking pixels added.
+      <a href="https://github.com/iller7/type-as-you-speak"
+        >Source and contributing</a
+      >
+      ·
+      <a
+        href="https://github.com/iller7/type-as-you-speak/blob/master/SECURITY.md"
+        >Security</a
+      >
+    </footer>
+  </body>
+</html>

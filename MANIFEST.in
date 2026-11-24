@@ -8,7 +8,7 @@ recursive-include bin *.sh
 recursive-include scripts *.py *.sh
 recursive-include packaging *.sh *.spec *.json *.md *.Dockerfile control PKGBUILD
 recursive-include tests *.py
-recursive-include docs *.md
+recursive-include docs *.md *.yml *.html
 recursive-include .agents/guides *.md
 prune .github
 prune dist
