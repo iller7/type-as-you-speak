@@ -1,52 +1,33 @@
-# Continuous checks: every PR + every push to master.
-#
-# This is what makes Dependabot PRs (and any change) trustworthy:
-#   build-and-audit — the wheel must build, and the shipped dependency tree
-#                     must be free of HIGH/CRITICAL advisories (pip-audit)
-#   workflow-lint   — zizmor static analysis of all .github/workflows
-#
-# All actions are pinned to commit SHAs (version in the comment); Dependabot
-# keeps the SHAs current for the "github-actions" ecosystem.
-
 name: ci
 
 on:
   pull_request:
   push:
-    branches: [master]
+  workflow_dispatch:
+  schedule:
+    - cron: "23 6 * * 1"
 
 permissions:
   contents: read
 
-jobs:
-  build-and-audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
-        with:
-          python-version: "3.12"
-      - name: Build sdist and wheel
-        run: |
-          python -m pip install --upgrade build
-          python -m build
-      - name: Security audit (pip-audit on the shipped dependency tree)
-        run: bash scripts/security-audit.sh
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
-  workflow-lint:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
+jobs:
+  checks:
+    uses: ./.github/workflows/checks.yml # zizmor: ignore[self-repository] -- actionlint requires the documented relative syntax
+  packages:
+    uses: ./.github/workflows/packages.yml # zizmor: ignore[self-repository] -- actionlint requires the documented relative syntax
+
+  passed:
+    if: always()
+    needs: [checks, packages]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
-        with:
-          # pin the zizmor binary too — no floating "latest"
-          # (v1.32.0 = newest version this action has a lockfile for)
-          version: v1.32.0
-          annotations: true
-          advanced-security: "false"
+      - name: Require code and native package checks
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          PACKAGES: ${{ needs.packages.result }}
+        run: test "$CHECKS" = success && test "$PACKAGES" = success

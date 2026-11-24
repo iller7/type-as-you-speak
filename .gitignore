@@ -5,7 +5,6 @@ __pycache__/
 build/
 dist/
 .eggs/
-.python-version
 
 # Environments
 .venv/
@@ -25,3 +24,11 @@ env/
 
 # The user's own local config (lives in ~/.config, never committed)
 config/config.toml
+
+# Quality tools and packaging staging
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.flatpak-builder/
+_build/

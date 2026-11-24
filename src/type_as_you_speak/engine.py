@@ -560,23 +560,24 @@ def _clipboard_args():
 
 
 def make_type():
-    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
-    os.environ.setdefault("YDOTOOL_SOCKET", f"{runtime}/.ydotool_socket")
     # DICTATE_DRY_RUN=1: run the whole pipeline (VAD, transcribe, commit,
-    # hallucination filter) but log what *would* be typed instead of injecting
+    # hallucination filter) but log character counts instead of injecting
     # keystrokes — handy for testing without a display/mic or touching windows.
     dry = os.environ.get("DICTATE_DRY_RUN") == "1"
+    if not dry:
+        runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
+        os.environ.setdefault("YDOTOOL_SOCKET", f"{runtime}/.ydotool_socket")
 
     def _run(args):
         if dry:
-            _log(f"dry-run type: {args[-1]!r}")
+            _log(f"dry-run type: {len(args[-1])} chars")
             return True
         try:
             subprocess.run(args, timeout=30, stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL, check=True)
             return True
         except Exception as e:
-            _log(f"ydotool failed: {e!r}")
+            _log(f"ydotool failed: {type(e).__name__}")
             return False
 
     def type_text(text):
@@ -596,7 +597,7 @@ def make_type():
             _log("copied to clipboard instead")
             return True
         except Exception as e2:
-            _log(f"clipboard fallback failed: {e2!r}")
+            _log(f"clipboard fallback failed: {type(e2).__name__}")
             return False
 
     def type_space():
@@ -760,7 +761,7 @@ def run_session(reader, t0):
         if type_text(lead + text):
             committed = norm(committed + lead + text)
             typed_any = True
-            _log(f"typed (+{len(text)} chars): {text[:60]!r}")
+            _log(f"typed (+{len(text)} chars)")
             return True
         return False
 
@@ -796,7 +797,7 @@ def run_session(reader, t0):
             segs, _ = transcribe(segment, prompt)
             segs = list(segs)
         except Exception as e:
-            _log(f"transcribe error: {e!r}")
+            _log(f"transcribe error: {type(e).__name__}")
             last_round_at = now
             return
         # Hotword prompt leak: whisper can re-emit the hotword prompt itself
@@ -807,11 +808,11 @@ def run_session(reader, t0):
         leaked = [s for s in segs if hotword_leak(s.text)]
         if leaked:
             for s in leaked:
-                _log(f"hotword leak dropped: {s.text.strip()[:60]!r}")
+                _log(f"hotword leak dropped: {len(s.text.strip())} chars")
             segs = [s for s in segs if not hotword_leak(s.text)]
         last_round_at = now
         for s in segs:
-            _log(f"  seg [{s.start:5.2f} -> {s.end:5.2f}] {s.text.strip()[:60]!r}")
+            _log(f"segment [{s.start:5.2f} -> {s.end:5.2f}]: {len(s.text.strip())} chars")
         words = [w for s in segs for w in (s.words or [])]
         if not words:
             _log("no word timestamps — skipping round")
@@ -873,7 +874,7 @@ def run_session(reader, t0):
                     segs2 = list(transcribe(tail, tail_prompt)[0])
                 except Exception as e:
                     segs2 = []
-                    _log(f"tail transcribe error: {e!r}")
+                    _log(f"tail transcribe error: {type(e).__name__}")
                 tw = guard_trailing([w for s in segs2 for w in (s.words or [])],
                                    tail, vad)
                 t2 = norm(strip_echo(tail_prompt,
@@ -881,7 +882,7 @@ def run_session(reader, t0):
                 if t2:
                     stable_text = norm((stable_text + " " + t2).strip())
                     covered = dur
-                    _log(f"tail recovered: {t2[:60]!r}")
+                    _log(f"tail recovered: {len(t2)} chars")
             else:
                 skipped = dur - covered
                 covered = dur

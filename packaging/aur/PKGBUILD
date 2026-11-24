@@ -13,8 +13,12 @@ url="https://github.com/iller7/type-as-you-speak"
 license=(AGPL-3.0-only)
 
 depends=(
-  python
-  # Python deps (all in [extra]):
+  "python>=3.11"
+  "python<3.15"
+  # Resolve distro/AUR Python dependencies before building this package.
+  python-numpy
+  python-pyside6
+  python-tomlkit
   python-faster-whisper
   python-onnxruntime
   # Runtime tools:
@@ -22,8 +26,10 @@ depends=(
   wl-clipboard   # clipboard fallback on Wayland
   xclip          # clipboard fallback on X11
   ffmpeg         # mic capture (pulse input)
+  libpulse
+  libnotify
 )
-makedepends=(python-pip)
+makedepends=(python-build python-installer python-setuptools python-wheel)
 
 source=("$pkgname-$pkgver.tar.gz::https://github.com/iller7/type-as-you-speak/archive/refs/tags/v$pkgver.tar.gz")
 # Hash of the v0.5.1 tarball (recompute after any pkgver bump:
@@ -33,20 +39,13 @@ sha256sums=('7e845794cae2a0208d10b84a1cebc669aadc82aa8ed86e2448f74713d2c24e95')
 build() {
   cd "$pkgname-$pkgver"
   # Arch already packages the Python dependencies, so bundle only the app code.
-  python -m pip install \
-    --no-cache-dir --no-build-isolation --no-deps --no-warn-script-location \
-    --user -t "$srcdir/pydeps" .
+  python -m build --wheel --no-isolation
 }
 
 package() {
   cd "$pkgname-$pkgver"
 
-  # Python package (pure Python; distro packages provide the deps).
-  local py sp
-  py="$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-  sp="$pkgdir/usr/lib/python$py/site-packages"
-  install -dm755 "$sp"
-  cp -a "$srcdir/pydeps/." "$sp/"
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
   # Launcher (wrapper so the shebang is env-clean).
   install -Dm755 /dev/null "$pkgdir/usr/bin/tays"
@@ -66,5 +65,6 @@ EOF
     install -Dm644 "data/icons/type-as-you-speak-$size.png" \
       "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/type-as-you-speak.png"
   done
-  install -Dm644 README.md LICENSE "$pkgdir/usr/share/doc/$pkgname/"
+  install -dm755 "$pkgdir/usr/share/doc/$pkgname"
+  install -m644 README.md LICENSE "$pkgdir/usr/share/doc/$pkgname/"
 }
