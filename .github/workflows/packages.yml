@@ -32,12 +32,13 @@ jobs:
           BASE_IMAGE: ${{ matrix.image }}
           DISTRO: ${{ matrix.distro }}
         run: docker build --build-arg "BASE_IMAGE=$BASE_IMAGE" -f packaging/containers/debian.Dockerfile --output "type=local,dest=dist/packages/$DISTRO" .
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: package-${{ matrix.distro }}
           path: dist/packages/${{ matrix.distro }}/*.deb
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 1
 
   rpm:
     runs-on: ubuntu-24.04
@@ -48,12 +49,13 @@ jobs:
           persist-credentials: false
       - name: Build, audit and install native RPM
         run: docker build -f packaging/containers/fedora.Dockerfile --output type=local,dest=dist/packages/fedora44 .
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: package-fedora44
           path: dist/packages/fedora44/*.rpm
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 1
 
   arch:
     runs-on: ubuntu-24.04
