@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Faizal Sahebdin
+# SPDX-License-Identifier: AGPL-3.0-only
 """Live dictation session: types into the focused window as you speak.
 
 Flow (streaming, Mac-like):

@@ -4,7 +4,7 @@
   <name>Type As You Speak</name>
   <summary>Speak, and your words are typed into the focused window — 100% locally</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>MIT</project_license>
+  <project_license>AGPL-3.0-only</project_license>
   <description>
     <p>
       Type As You Speak is <em>dictation, not transcription</em>: it is an

@@ -1,4 +1,4 @@
-include LICENSE README.md CHANGELOG.md RELEASES.md CONTRIBUTING.md SECURITY.md TODO.md AGENTS.md pyproject.toml uv.lock
+include LICENSE NOTICE COMMERCIAL.md LICENSES/MIT-legacy.txt README.md CHANGELOG.md RELEASES.md CONTRIBUTING.md SECURITY.md TODO.md AGENTS.md pyproject.toml uv.lock
 include install.sh Makefile mise.toml .python-version .dockerignore .editorconfig .prettierrc.json .prettierignore
 recursive-include src *.py
 recursive-include data *.desktop *.xml *.svg *.png

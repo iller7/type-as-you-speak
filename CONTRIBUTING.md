@@ -35,3 +35,7 @@ Keep transcription and configuration independent of desktop integrations. Future
 Create a PR for completed work rather than leaving it only on a feature branch. When merging is authorised, use normal merge or auto-merge after required checks pass; authors cannot approve their own PRs. Confirm the merged state and sync master before starting the next piece of work. Do not bypass protections or fabricate an approval.
 
 Write Markdown paragraphs and list items on single source lines, with visual wrapping in the editor. The repository configures Prettier to avoid hard wrapping. Indent two spaces by default, four for Python, and use tabs in Makefiles. Focused user guides live in docs/; the README should remain a short entry point.
+
+## Licensing contributions
+
+The public core is AGPL-3.0-only; see [licensing scope](docs/licensing.md). Contributions under that licence do not automatically grant alternative commercial-licensing rights. Do not claim a CLA exists or include outside contributions in a proprietary edition without the copyright-holder permissions required for that use. The contributor-rights process remains part of issue #10.

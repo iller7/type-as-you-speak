@@ -34,4 +34,4 @@ Use Python 3.14 for development, install the pinned tools, then run `make setup`
 
 ## Licence
 
-The first-party source currently uses [MIT](LICENSE). Dependencies, model weights and bundled input tools retain their own terms. The backlog tracks the MIT/AGPL decision and a component-level licence review; the badge does not certify all bundled components under one licence.
+The public first-party source uses [AGPL-3.0-only](LICENSE), with [separate commercial licensing enquiries](COMMERCIAL.md) for code the maintainer controls. Earlier MIT releases retain their permissions. Dependencies, model weights and bundled tools retain their own terms; see the [licensing guide](docs/licensing.md).

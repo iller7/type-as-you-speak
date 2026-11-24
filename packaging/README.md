@@ -63,3 +63,5 @@ Container checks cannot exercise a real microphone, compositor permissions, focu
 ## CI artifacts
 
 Pull requests still build, install and audit the native packages, but do not upload large binaries. To obtain test packages, run the CI workflow manually on the desired branch; those package artifacts expire after one day. Tag-triggered release builds also upload packages for the publish job, which attaches them to the GitHub release. This limits temporary storage on GitHub Free. Existing artifacts are not deleted by this policy change.
+
+The AUR recipe currently downloads the published MIT v0.5.1 source and retains MIT metadata for that source. Update its licence, version and checksum together when publishing the first AGPL release. The Arch CI source override smoke-builds the current checkout; it does not publish an AUR package.

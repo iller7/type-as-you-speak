@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Faizal Sahebdin
+# SPDX-License-Identifier: AGPL-3.0-only
 """Configuration for type-as-you-speak.
 
 Precedence (highest wins):
