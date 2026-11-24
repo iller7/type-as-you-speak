@@ -1,3 +1,7 @@
+---
+title: "Configuration"
+---
+
 # Configuration
 
 Copy the sample and edit — every key is optional:

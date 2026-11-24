@@ -1,21 +1,22 @@
 # Project guidance
 
-Read `TODO.md` before substantial work. It is the shared product backlog, not temporary agent execution state. Use `CONTRIBUTING.md` for verification and `.agents/guides/python-desktop.md` when working on Python, Qt, audio or Linux integration.
+Read `TODO.md` before substantial work. It is a concise roadmap to GitHub Issues, the source of truth for tasks and status. Use `CONTRIBUTING.md` for verification and `.agents/guides/python-desktop.md` when working on Python, Qt, audio or Linux integration.
 
 ## Working principles
 
 - Prefer established, maintainable practices that fit a local desktop dictation app. Record evidence and trade-offs in the backlog before introducing a new framework, language, packaging channel or service.
 - The maintainer develops on Kubuntu with a local LLM. Keep instructions usable through ordinary files and CLI tools. Do not require a cloud LLM provider, API key, paid assistant or proprietary agent harness. GitHub CI and initial dependency/model downloads are separate from local inference.
-- Python is the current implementation, not a permanent decision. Keep the Python/Rust/hybrid and desktop-shell decisions in TODO.md open until measured evidence and the maintainer's preference settle them.
+- Python is the current implementation, not a permanent decision. Keep the Python/Rust/hybrid and desktop-shell decisions in GitHub Issues open until measured evidence and the maintainer's preference settle them.
 - Use the main checkout and short-lived branches. Never create, enter or use Git worktrees. Preserve unrelated changes.
-- Keep temporary agent plans, specifications, transcripts and execution logs outside the repository. The user explicitly requested TODO.md as a durable product backlog; maintain it in version control.
+- Keep temporary agent plans, specifications, transcripts and execution logs outside the repository. Keep TODO.md as a short, stable roadmap linking to issue queries; do not duplicate live issue status.
 
 ## Backlog upkeep
 
-- Add new bugs, ideas, risks and follow-up suggestions to TODO.md as they arise. Give each task a stable ID, priority, status and completion condition. Avoid duplicate tasks.
-- Order active tasks by importance. Update the existing row when work progresses and link its PR or verification evidence.
-- Mark Done only when the completion condition is met. Distinguish proposed, implemented, CI-verified, desktop-tested, merged and released work. A build pass does not prove microphone, focus, input permissions or GPU compatibility.
-- Preserve completed-task evidence and unresolved verification gaps. Record scope changes rather than silently dropping work.
+- GitHub Issues owns tasks, priority, acceptance criteria, progress and verification evidence. Add discoveries and follow-ups there, checking for duplicates first. Retain migrated Txxx IDs for historical references; new issues can use their GitHub number directly.
+- Use priority:P0 through priority:P3 labels. Use status:in-progress or status:needs-decision where applicable; unlabelled open issues are queued. Remove obsolete status labels when a decision is made, work stops or the task closes.
+- Every PR must reference an issue: use `Refs #123` for partial progress and `Closes #123` only when all acceptance criteria are met. Automated dependency PRs also need a linked tracking issue before merging; create/link one rather than bypassing the convention.
+- Preserve unresolved verification gaps in the issue. Distinguish implementation, CI verification, desktop QA, merging and release publication. A build does not prove microphone, focus, input or GPU compatibility.
+- Keep TODO.md concise and use query links rather than a manually synchronised status table. Completion history is in closed issues, PRs and Git history.
 
 ## Pull requests and merging
 

@@ -41,8 +41,8 @@ Use synthetic arrays and stubs for fast unit tests. Add a small set of licensed 
 
 Use a local TTS generator such as eSpeak NG when generating fixtures, or review the licence of recorded samples before adding them. The legacy gTTS extra uses an online service, so it must not become a requirement for the local-only workflow or offline tests. Record fixture provenance, model version/revision, configuration and expected thresholds.
 
-No cloud LLM is required to develop or run the current app. Do not add remote post-processing or a provider SDK just because an example project uses one. If optional LLM integration is proposed, record it in TODO.md and design around the maintainer's local setup first.
+No cloud LLM is required to develop or run the current app. Do not add remote post-processing or a provider SDK just because an example project uses one. If optional LLM integration is proposed, record it in GitHub Issues and design around the maintainer's local setup first.
 
 ## Review
 
-Check observable behaviour, failures, privacy and installed-package operation before style. Add a regression test for a real bug, avoid tests that merely repeat implementation, and state what remains unverified. Use the PR workflow in AGENTS.md and update TODO.md with evidence.
+Check observable behaviour, failures, privacy and installed-package operation before style. Add a regression test for a real bug, avoid tests that merely repeat implementation, and state what remains unverified. Use the PR workflow in AGENTS.md and update the linked GitHub issue with evidence.
