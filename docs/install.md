@@ -19,7 +19,7 @@ These controls apply to the current source checkout. No supported binary release
 | **Clipboard** (`wl-copy` on Wayland, `xclip` on X11) | clipboard fallback if typing fails              | `apt install wl-clipboard` / `apt install xclip` |
 | **libnotify** (`notify-send`)                        | desktop notifications                           | usually present                                  |
 
-For source installs, verify the client/daemon version and current distro availability. Debian 12 supplies an older ydotool, while Debian 13 may require backports or a reviewed source build. The new Debian/Ubuntu packages include private compatible tools. Source-installer validation is tracked under [T025](https://github.com/iller7/type-as-you-speak/issues/18).
+For source installs, verify the client/daemon version and current distro availability. Debian 12 supplies an older ydotool, while Debian 13 may require backports or a reviewed source build. The new Debian/Ubuntu packages include private compatible tools. Source-installer validation is tracked under [#18](https://github.com/iller7/type-as-you-speak/issues/18).
 
 Download your selected Whisper model before the first strict-offline session with `tays download` or the GUI Download button. Models are cached under the configured Hugging Face cache (by default `~/.cache/huggingface`); model size depends on your selection.
 
@@ -51,7 +51,7 @@ No supported binary release is published yet. Use a source installation above. F
 
 All package-channel builds are **CPU builds** (no GPU in a sandbox) — the right choice if you don't need GPU acceleration. The power-user route (Options A/B) is the one that adds the CUDA build.
 
-Other channels have recipes in the repository. Submission/publication status needs confirmation under [T010](https://github.com/iller7/type-as-you-speak/issues/15); a recipe alone is not proof that a channel is published:
+Other channels have recipes in the repository. Submission/publication status needs confirmation under [#15](https://github.com/iller7/type-as-you-speak/issues/15); a recipe alone is not proof that a channel is published:
 
 - **Arch / AUR:** the `packaging/aur/PKGBUILD.in` template (not a published AUR package)
 - **Fedora / Copr:** `packaging/fedora/type-as-you-speak.spec`

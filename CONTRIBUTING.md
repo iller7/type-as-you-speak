@@ -28,7 +28,7 @@ Before a release, test on a real Linux desktop: KDE Plasma and GNOME; Wayland an
 
 ## Platform direction
 
-Keep transcription and configuration independent of desktop integrations. Future macOS/Windows support needs separate adapters for audio capture, input injection, permissions, shortcuts, application data paths and packaging/signing. Use the current PySide6 UI while T019 evaluates desktop-shell alternatives; the framework choice remains open. Do not reuse Linux shell tools as a cross-platform abstraction. Introduce these adapters with behaviour tests when implementing the ports; a full Rust rewrite is not required for this boundary.
+Keep transcription and configuration independent of desktop integrations. Future macOS/Windows support needs separate adapters for audio capture, input injection, permissions, shortcuts, application data paths and packaging/signing. Use the current PySide6 UI while [issue #22](https://github.com/iller7/type-as-you-speak/issues/22) evaluates desktop-shell alternatives; the framework choice remains open. Do not reuse Linux shell tools as a cross-platform abstraction. Introduce these adapters with behaviour tests when implementing the ports; a full Rust rewrite is not required for this boundary.
 
 ## PR workflow and documentation
 

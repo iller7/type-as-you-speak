@@ -31,6 +31,8 @@ make package-rpm
 
 The upstream RPM bundles native Python wheels under `/opt/type-as-you-speak/pydeps`. Its source RPM includes the exact offline wheelhouse; `rpmbuild` performs no dependency downloads. It requires the target distro's `python(abi)` and includes third-party distribution metadata/licences. The release gate audits the installed RPM bundle. RPM does not treat the private wheel libraries or optional Qt plugins as public system capabilities: their dependency scanning is scoped out for this private directory, with OS dependencies declared explicitly and checked by installing into a clean Fedora image.
 
+The upstream container uses zstd level 3 for the binary RPM instead of Fedora's CPU-intensive level 19 default. This trades some package-size efficiency for much faster builds; the source RPM keeps the distribution default. The container reports the produced payload format and file size. Offline installation, installed imports/Qt, CPU recognition and the dependency audit remain required.
+
 This is an upstream distribution RPM, not a claim of compliance for inclusion in Fedora's repositories. Fedora acceptance requires separately packaging the inference dependencies, removing the bundled wheels and satisfying its [Python packaging policy](https://docs.fedoraproject.org/en-US/packaging-guidelines/Python/). Copr publication also requires an owner/project and a reviewed source RPM.
 
 ## Arch
