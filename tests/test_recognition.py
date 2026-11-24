@@ -41,17 +41,14 @@ def cpu_model(pytestconfig):
     with pytest.MonkeyPatch.context() as offline:
         offline.setattr(socket.socket, "connect", no_network)
         offline.setattr(socket, "create_connection", no_network)
-        from type_as_you_speak.privacy import disable_inference_telemetry
+        from type_as_you_speak import engine
 
-        disable_inference_telemetry()
-        from faster_whisper import WhisperModel
-
-        yield WhisperModel(
+        offline.setattr(engine, "CFG", {**engine.CFG, "strict_offline": True})
+        yield engine._load_model(
             directory,
             device="cpu",
             compute_type="int8",
             cpu_threads=2,
-            local_files_only=True,
         )
 
 

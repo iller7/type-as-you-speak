@@ -76,7 +76,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libgl1 libfontconfig1 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install -y --no-install-recommends libegl1 libopengl0 libgl1 libfontconfig1 libxkbcommon-x11-0 libxcb-cursor0 libseccomp2 strace
       - name: Report test host
         run: python -c "import platform; print(platform.platform()); print(platform.machine()); print(platform.python_version())"
       - run: uv sync --locked --extra gui
@@ -92,6 +92,11 @@ jobs:
           TAYS_TEST_MODEL_DIR: ${{ runner.temp }}/tays-recognition-model
           HF_HUB_OFFLINE: "1"
         run: uv run --locked pytest -m recognition tests/test_recognition.py -q -s
+      - name: Reject native network activity during strict inference
+        if: runner.os == 'Linux' && matrix.python == '3.14'
+        env:
+          TAYS_TEST_MODEL_DIR: ${{ runner.temp }}/tays-recognition-model
+        run: uv run --locked python scripts/check-inference-network.py --model "$TAYS_TEST_MODEL_DIR"
       - name: Build and test the installed wheel
         shell: bash
         run: |

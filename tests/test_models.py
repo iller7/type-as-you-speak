@@ -38,7 +38,10 @@ def test_forced_cpu_never_probes_or_loads_a_gpu(model_factory, monkeypatch):
     model = engine.build_model()
     assert model.device == "cpu"
     assert model_factory.calls == [
-        ("large-v3", {"device": "cpu", "compute_type": "int8"})
+        (
+            "large-v3",
+            {"device": "cpu", "compute_type": "int8", "local_files_only": True},
+        )
     ]
     assert engine.RUNTIME == {"model": "large-v3", "device": "cpu"}
 
@@ -79,3 +82,13 @@ def test_cpu_load_failure_propagates_without_a_misleading_runtime(model_factory)
     with pytest.raises(RuntimeError, match="unavailable"):
         engine.build_model()
     assert engine.RUNTIME == {}
+
+
+@pytest.mark.parametrize("strict", [True, False])
+def test_every_gpu_ladder_and_cpu_load_respects_offline_policy(model_factory, strict):
+    engine.CFG["strict_offline"] = strict
+    model_factory.install(fail=lambda name, device: device == "cuda")
+    engine.build_model()
+    assert all(
+        options["local_files_only"] is strict for _, options in model_factory.calls
+    )

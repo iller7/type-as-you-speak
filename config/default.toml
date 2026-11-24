@@ -1,3 +1,7 @@
+# Privacy: download models in setup or the GUI before starting dictation.
+# Invalid values retain strict mode. Telemetry stays disabled in either mode.
+strict_offline = true
+
 # type-as-you-speak — default configuration
 # -----------------------------------------
 # Copy this file to:

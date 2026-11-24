@@ -15,9 +15,9 @@
     <p>
       Everything runs on your machine. Speech is transcribed locally with
       faster-whisper (the fast CTranslate2 build of Whisper), so your voice and
-      your text never leave your computer. After the first model download it
-      works completely offline, and there is no account, no telemetry, and no
-      server.
+      your text are processed locally. Strict offline dictation is enabled by
+      default; download models during setup or from the GUI before dictating.
+      Telemetry is disabled, and no cloud dictation account is required.
     </p>
     <p>
       While the microphone is live your audio output is muted, so you don't

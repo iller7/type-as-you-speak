@@ -53,6 +53,7 @@ import tomlkit
 
 from . import __version__
 from . import cli
+from . import privacy
 from .config import load_config, user_config_path
 
 # Spin-box ranges (key -> (min, max, single-step)).
@@ -553,10 +554,7 @@ class SettingsWindow(QMainWindow):
                 "disable_inference_telemetry(); "
                 f"from faster_whisper import WhisperModel; "
                 f"WhisperModel({name!r}, device='cpu', compute_type='int8')")
-        env = dict(os.environ)
-        # Native launchers add private dependencies to sys.path, not the child environment.
-        env["PYTHONPATH"] = os.pathsep.join(filter(None, (
-            str(Path(__file__).resolve().parent.parent), env.get("PYTHONPATH", ""))))
+        env = privacy.python_environment()
         lines: list[str] = []
         try:
             p = subprocess.Popen([sys.executable, "-c", code],
@@ -609,6 +607,19 @@ class SettingsWindow(QMainWindow):
         self._fields["language"] = self.lang_combo
         f.addRow(self.tr("Language:"), self.lang_combo)
 
+        offline = QCheckBox(self.tr("Strict offline dictation"))
+        offline.setToolTip(self.tr(
+            "Block direct Internet access during dictation and require downloaded models. "
+            "Model downloads remain available here and during setup. No cloud dictation "
+            "service currently exists. Save, then stop/restart dictation to apply."))
+        self._fields["strict_offline"] = offline
+        f.addRow(offline)
+        if "DICTATE_STRICT_OFFLINE" in os.environ:
+            offline.setEnabled(False)
+            override = QLabel(self.tr("Privacy is controlled by DICTATE_STRICT_OFFLINE for this process."))
+            override.setWordWrap(True)
+            f.addRow(override)
+
         # model: a notched slider, smallest → largest
         self.model_slider = QSlider(Qt.Orientation.Horizontal)
         self.model_slider.setRange(0, len(MODEL_RANKS) - 1)
@@ -624,7 +635,7 @@ class SettingsWindow(QMainWindow):
         self.dl_btn = QPushButton(self.tr("Download"))
         self.dl_btn.setToolTip(self.tr(
             "Download the model at the current notch (stored in the Hugging "
-            "Face cache; a session would also fetch it on first use)."))
+            "Face cache). Download before starting strict offline dictation."))
         self.dl_btn.clicked.connect(self._download_clicked)
         self.model_label = QLabel("")
         self.model_label.setWordWrap(True)
@@ -910,6 +921,8 @@ class SettingsWindow(QMainWindow):
                 # then apply the values below.
                 doc = tomlkit.parse(cli._sample_config_text())
             for key, widget in self._fields.items():
+                if key == "strict_offline" and "DICTATE_STRICT_OFFLINE" in os.environ:
+                    continue
                 doc[key] = self._value_for(key, widget)
             doc["device"] = self._device_value()
             doc["hotwords"] = "" if hw_target else ",".join(hw_lines)
@@ -965,6 +978,7 @@ class SettingsWindow(QMainWindow):
         return subprocess.run(
             [sys.executable, "-m", "type_as_you_speak", *args],
             capture_output=True, text=True, timeout=30,
+            env=privacy.python_environment(),
         )
 
     def _status_line(self, st: dict) -> str:
@@ -984,6 +998,14 @@ class SettingsWindow(QMainWindow):
             # The running session keeps the device it STARTED with; a config
             # change applies to the next session. Say so, or the panel and
             # the radio buttons look out of sync.
+            if st.get("strict_offline") is True and st.get("network_guard") is True:
+                line += " — " + self.tr("strict offline active")
+            elif st.get("strict_offline") is False:
+                line += " — " + self.tr("strict offline disabled")
+            else:
+                line += " — " + self.tr("privacy status unknown — restart dictation")
+            if load_config()["strict_offline"] != st.get("strict_offline"):
+                line += " — " + self.tr("privacy setting changed; stop and restart to apply")
             cfg_dev = str(load_config().get("device", "auto"))
             if cfg_dev != dev:
                 line += "  " + self.tr("(configured: {c} — applies to the next session)").format(c=cfg_dev)

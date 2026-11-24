@@ -4,6 +4,8 @@ title: "Usage"
 
 # Usage
 
+Download your selected model first with `tays download`, `tays setup --download-model`, or the GUI Download button. Strict offline dictation is on by default; see [privacy controls](privacy.md).
+
 ```bash
 tays start     # run a live session in the foreground (ducks output; Ctrl-C stops)
 tays stop      # stop the running session (commits pending text, restores volume)

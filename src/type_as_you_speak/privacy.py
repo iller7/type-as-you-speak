@@ -3,6 +3,7 @@
 """Apply telemetry opt-outs before inference dependencies initialize."""
 
 import os
+from pathlib import Path
 
 
 def configure_environment() -> None:
@@ -13,6 +14,8 @@ def configure_environment() -> None:
     """
     os.environ["ORT_DISABLE_TELEMETRY"] = "1"
     os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+    os.environ["HF_XET_TELEMETRY_ENABLED"] = "0"
+    os.environ["DO_NOT_TRACK"] = "1"
 
 
 def disable_inference_telemetry() -> None:
@@ -25,3 +28,11 @@ def disable_inference_telemetry() -> None:
     import onnxruntime
 
     onnxruntime.disable_telemetry_events()
+
+
+def python_environment() -> dict:
+    """Preserve the private native-package import path in Python children."""
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = os.pathsep.join(filter(None, (
+        str(Path(__file__).resolve().parent.parent), environment.get("PYTHONPATH", ""))))
+    return environment
