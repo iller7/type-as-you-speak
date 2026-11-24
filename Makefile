@@ -28,7 +28,7 @@ package-deb:
 	docker build --platform linux/amd64 -f packaging/containers/debian.Dockerfile --output type=local,dest=dist/packages/ubuntu24.04 .
 
 package-rpm:
-	docker build --platform linux/amd64 -f packaging/containers/fedora.Dockerfile --output type=local,dest=dist/packages/fedora44 .
+	docker build --platform linux/amd64 -f packaging/containers/fedora.Dockerfile --output type=local,dest=dist/packages/fedora .
 
 clean:
 	rm -rf build dist .pytest_cache .ruff_cache

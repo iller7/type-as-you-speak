@@ -53,8 +53,12 @@ def cpu_model(pytestconfig):
 
 
 @pytest.fixture
-def recognized(cpu_model, monkeypatch, tmp_path):
+def recognized(cpu_model, monkeypatch, tmp_path, pytestconfig):
     from type_as_you_speak import engine
+
+    installed = pytestconfig.getoption("--recognition-installed-path")
+    if installed:
+        assert Path(engine.__file__).resolve().is_relative_to(Path(installed).resolve())
 
     def blocked(*args, **kwargs):
         pytest.fail("Recognition checks must not use network or desktop commands")

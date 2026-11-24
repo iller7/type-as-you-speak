@@ -5,7 +5,7 @@ KDE Plasma and GNOME are desktops; Debian/Ubuntu, Arch and Fedora are distributi
 | Channel                          | Build path                               | Automated scope                                                                                     | Publication                                                      |
 | -------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Debian 12/13, Ubuntu 24.04/26.04 | `packaging/containers/debian.Dockerfile` | Native interpreter, locked dependencies, vulnerability audit, install, imports, offscreen Qt launch | Tagged GitHub release assets                                     |
-| Fedora 44                        | `packaging/containers/fedora.Dockerfile` | Offline RPM/SRPM, native ABI, audit, install, imports, offscreen Qt launch                          | Tagged GitHub release assets; Copr is separate                   |
+| Fedora 44/45                     | `packaging/containers/fedora.Dockerfile` | Offline RPM/SRPM, native ABI, audit, install, imports, offscreen Qt and installed CPU recognition   | Tagged GitHub release assets; Copr is separate                   |
 | Arch                             | `packaging/aur/PKGBUILD`                 | Non-root makepkg build from the current checkout                                                    | AUR submission and runtime dependency validation remain separate |
 | Flatpak                          | `packaging/flatpak/`                     | Prototype with pinned source commits and an offline dependency generator                            | Experimental; not a release asset or a Flathub-ready submission  |
 
@@ -64,3 +64,13 @@ Container checks cannot exercise a real microphone, compositor permissions, focu
 
 Pull requests still build, install and audit the native packages, but do not upload large binaries. To obtain test packages, run the CI workflow manually on the desired branch; those package artifacts expire after one day. Tag-triggered release builds also upload packages for the publish job, which attaches them to the GitHub release. This limits temporary storage on GitHub Free. Existing artifacts are not deleted by this policy change.
 
+
+### Fedora 45 native ONNX provider
+
+The default container is Fedora 45; the CI matrix also retains Fedora 44 through an explicit base-image override. `make package-rpm` writes to `dist/packages/fedora/`; RPM filenames distinguish their Fedora release. The expected-distro check in CI prevents a future base-image upgrade from being tested under an old lane name.
+
+For Python 3.15, the build creates a system-site-enabled build environment and deliberately omits the ONNX wheel from the private wheelhouse. The spec declares `python3-onnxruntime >= 1.26` as a build/runtime dependency on Fedora 45+, and records the provider's build NEVRA under `/usr/share/doc/type-as-you-speak/native-onnx-build.txt`. Other dependencies stay in the locked offline wheelhouse. Standard bundles still select ONNX Runtime 1.32; the lower declared floor reflects the native API version now tested.
+
+The build validates runtime-visible dependencies with `python -m pip check`; uv's own package check intentionally does not include inherited system packages. Audit the installed bundle plus the native ONNX Python dependency closure with `scripts/audit.py --system-package onnxruntime`; missing providers and native/bundled shadowing fail closed. The Python advisory scan remains separate from Fedora's OS-library update/advisory process.
+
+The verification stage checks clean RPM installation and offscreen Qt, then executes the real-model EOF recognition cases against installed application code. It compares the ONNX version seen in the runtime image with the verification environment. The RPM/SRPM is exported only after those checks and the strict audit pass. This remains an upstream bundled RPM, not a Fedora-repository compliance claim; publication remains explicit.

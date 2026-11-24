@@ -7,7 +7,7 @@ name = "type-as-you-speak"
 version = "0.5.1"
 description = "Mac-like, type-as-you-speak dictation for Linux (Wayland & X11): speak and the words are typed into the focused window as you talk."
 readme = "README.md"
-requires-python = ">=3.11,<3.15"
+requires-python = ">=3.11,<3.16"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE", "NOTICE", "COMMERCIAL.md"]
 authors = [{ name = "Faizal Sahebdin", email = "iller7@gmail.com" }]
@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
   "faster-whisper>=1.2.1,<2",
   "numpy>=2.3,<3",
-  "onnxruntime>=1.32,<2",
+  "onnxruntime>=1.26,<2",
 ]
 
 [project.optional-dependencies]
