@@ -54,6 +54,18 @@
   </developer>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.5.3" date="2026-11-24" type="stable">
+      <description>
+        <p>
+          First public release. Replaces the withdrawn 0.5.2 cut and fixes the
+          Plasma panel applet on Plasma 6: it now uses
+          <code>Kirigami.LinkButton</code>, because the PlasmaComponents3
+          compatibility module does not export <code>LinkButton</code> on all
+          distros (the applet previously failed to load: blank icon and a QML
+          compile error).
+        </p>
+      </description>
+    </release>
     <release version="0.5.2" date="2026-11-24" type="stable">
       <description>
         <p>

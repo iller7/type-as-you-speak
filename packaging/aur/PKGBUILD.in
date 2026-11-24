@@ -5,7 +5,7 @@
 # and it works offline after the first model download (~484 MB, small.en).
 
 pkgname=type-as-you-speak
-pkgver=0.5.2
+pkgver=0.5.3
 pkgrel=1
 pkgdesc="Mac-like, type-as-you-speak dictation for Linux (Wayland & X11) — 100% local"
 arch=(x86_64)
