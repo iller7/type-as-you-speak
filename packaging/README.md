@@ -1,84 +1,61 @@
-# Packaging
+# Linux distribution
 
-Distribution channels for **type-as-you-speak**. The public GitHub repository
-is the single source of truth for every channel — nothing here duplicates code.
+KDE Plasma and GNOME are desktops; Debian/Ubuntu, Arch and Fedora are distributions. The app needs both distro package checks and desktop/session tests. We follow KDE's [build-before-publication approach](https://develop.kde.org/docs/packaging/flatpak/publishing/) and Python's [downstream packaging guidance](https://packaging.python.org/en/latest/discussions/downstream-packaging/): complete source archives, offline build inputs, declared dependencies and tests against installed artifacts.
 
-All store/distro builds are **CPU builds** (no CUDA/NVIDIA in a sandbox or
-package — too heavy to share). The GPU path stays the power-user route:
-`git clone` + `./install.sh`.
+| Channel | Build path | Automated scope | Publication |
+|---|---|---|---|
+| Debian 12/13, Ubuntu 24.04/26.04 | `packaging/containers/debian.Dockerfile` | Native interpreter, locked dependencies, vulnerability audit, install, imports, offscreen Qt launch | Tagged GitHub release assets |
+| Fedora 44 | `packaging/containers/fedora.Dockerfile` | Offline RPM/SRPM, native ABI, audit, install, imports, offscreen Qt launch | Tagged GitHub release assets; Copr is separate |
+| Arch | `packaging/aur/PKGBUILD` | Non-root makepkg build from the current checkout | AUR submission and runtime dependency validation remain separate |
+| Flatpak | `packaging/flatpak/` | Prototype with pinned source commits and an offline dependency generator | Experimental; not a release asset or a Flathub-ready submission |
 
-| Channel   | Path                    | User installs with                          |
-|-----------|-------------------------|---------------------------------------------|
-| Flatpak   | `flatpak/*.json`        | `flatpak install` / KDE Discover / Flathub  |
-| AUR       | `aur/PKGBUILD`          | `yay -S type-as-you-speak`                  |
-| Debian    | `deb/control` + `deb/build-deb.sh` | `apt install ./type-as-you-speak_*.deb` |
-| Fedora    | `fedora/type-as-you-speak.spec`    | Copr project / `dnf copr enable`       |
+These are CI targets, not a claim that every desktop/hardware combination has been tested. Native package jobs currently target x86-64. PySide6's current ARM64 Linux wheel needs a newer glibc than some target distributions; do not advertise ARM64 packages until native builds are added and tested.
 
-## Shared app identity (in `../data/`)
+## Debian and Ubuntu
 
-- `type-as-you-speak.desktop` — menu entry; **Exec is `tays toggle`** (one
-  press starts, next stops — the same behaviour as the Dictation key).
-- `type-as-you-speak.metainfo.xml` — AppStream metadata (name, description,
-  categories, keywords, releases, developer). Feeds Discover / GNOME
-  Software / appstream-gtk.
-- `icons/type-as-you-speak-{512,256,128,64,32}.png` — hicolor sizes.
-  Transparent background; no embedded metadata.
-
-App ID: `io.github.iller7.TypeAsYouSpeak` (AppStream + Flatpak).
-Icon name: `type-as-you-speak`.
-
-## Flatpak / Flathub
-
-Manifest: `flatpak/io.github.iller7.TypeAsYouSpeak.json`.
-
-Sandbox needs (all in `finish-args`):
-
-- `--device=all` — `ydotoold` uses `/dev/uinput` for keystroke injection
-- `--socket=pulseaudio` — mic capture (`ffmpeg -f pulse`) + output muting (`pactl`)
-- `--socket=wayland` / `--socket=x11` + `--share=ipc` — clipboard fallback
-  (`wl-copy` / `xclip`) and display
-- `--share=network` — first-run model download (Hugging Face)
-- `--filesystem=xdg-config` — user config · `--filesystem=xdg-cache` — model cache
-- `org.freedesktop.Platform.ffmpeg8` extension — the `ffmpeg` binary
-- modules: `ydotool` (CMake), `wl-clipboard` (meson), the app (pip, from tag)
-
-The app **starts `ydotoold` itself** if it isn't running (`tays` →
-`_prepare_env`), so no systemd service is needed inside the sandbox.
-
-To submit to Flathub: fork/PR [flathub/flathub](https://github.com/flathub/flathub),
-add the manifest (Flathub prefers the manifest at the repo root of its own
-mirror; it pulls our git source by tag), and open the PR. The first build may
-need small module fixes (e.g. a missing SDK dep) — the manifest is a
-deliberately conservative starting point.
-
-## AUR
-
-`aur/PKGBUILD`. Uses Arch's `[extra]` Python packages
-(`python-faster-whisper`, `python-onnxruntime`) and only bundles the app code.
-**`sha256sums` is set from the tagged tarball** — when you bump `pkgver`,
-recompute it (`sha256sum` of the release tarball).
-
-## Debian / Ubuntu
-
-`deb/build-deb.sh` produces `dist/type-as-you-speak_<ver>_<arch>.deb`:
-
-```bash
-./packaging/deb/build-deb.sh
-apt install ./dist/type-as-you-speak_0.5.0_amd64.deb
+```sh
+make package-deb
+# Or build on another target distribution:
+docker build --build-arg BASE_IMAGE=debian:13-slim -f packaging/containers/debian.Dockerfile --output type=local,dest=dist/packages/debian13 .
 ```
 
-Bundles the Python deps under `/opt/type-as-you-speak/pydeps` (Debian/Ubuntu
-do not package faster-whisper) and declares the system tools
-(`ydotool`, `wl-clipboard`, `xclip`, `ffmpeg`) as dependencies.
+CI uses digest-pinned images. Artifacts include the distro and architecture in their filename. A `.deb` built for Ubuntu 24.04 is not a generic Debian/Ubuntu binary: the bundle contains native extensions and the launcher requires the exact Python minor it was built against. Dependencies include the system audio/clipboard tools and Qt libraries. The application and settings window are included; NVIDIA runtime wheels are not bundled.
 
-## Fedora / Copr
+`scripts/prepare-wheelhouse.sh` exports hashed GUI/runtime requirements from `uv.lock`, downloads only compatible wheels and adds the locally built application wheel. `build-deb.sh` installs offline and audits the installed third-party versions before packaging. The JSON advisory report is included under `/usr/share/doc/type-as-you-speak/`. Model weights are downloaded separately on first use and are not part of the dependency audit.
 
-`fedora/type-as-you-speak.spec`. Create a
-[Copr project](https://copr.fedorainfracloud.org/), point it at this repo
-(spec path `fedora/type-as-you-speak.spec`, source = tagged tarball), and let
-it build for the target Fedora release(s). Then users run:
+## Fedora
 
-```bash
-dnf copr enable @<user>/type-as-you-speak
-dnf install type-as-you-speak
+```sh
+make package-rpm
 ```
+
+The upstream RPM bundles native Python wheels under `/opt/type-as-you-speak/pydeps`. Its source RPM includes the exact offline wheelhouse; `rpmbuild` performs no dependency downloads. It requires the target distro's `python(abi)` and includes third-party distribution metadata/licences. The release gate audits the installed RPM bundle.
+
+This is an upstream distribution RPM, not a claim of compliance for inclusion in Fedora's repositories. Fedora acceptance requires separately packaging the inference dependencies, removing the bundled wheels and satisfying its [Python packaging policy](https://docs.fedoraproject.org/en-US/packaging-guidelines/Python/). Copr publication also requires an owner/project and a reviewed source RPM.
+
+## Arch
+
+The PKGBUILD uses `python -m build` and `python -m installer`; Python runtime dependencies are supplied by Arch or AUR. Do not assume every inference dependency is available in the official repositories. Install/review those dependencies before building. The current supported interpreter range is 3.11–3.14; an Arch Python transition outside that range needs compatibility work first.
+
+CI builds this checkout with a temporary local source archive and calculated checksum, so it cannot accidentally validate an old release. The published PKGBUILD retains a real release-tarball checksum; update it only after the new tag exists. The non-root package-build check does not certify microphone, GPU or GUI runtime operation.
+
+## Flatpak
+
+The checked-in manifest is a prototype template. It pins git commits, uses app-private configuration/cache and exposes only the host ydotool socket instead of all input devices. A host ydotool daemon is still required; users must not weaken socket permissions to share it across users.
+
+Generate dependencies on Linux x86-64 with Python 3.13 (the Freedesktop 25.08 runtime's Python):
+
+```sh
+uv sync --locked --python 3.13 --extra gui
+bash scripts/prepare-wheelhouse.sh dist/flatpak-wheelhouse
+uv run --locked python scripts/prepare-flatpak.py dist/flatpak-wheelhouse
+flatpak-builder --user --force-clean _build/flatpak dist/flatpak/io.github.iller7.TypeAsYouSpeak.json
+```
+
+The generator verifies downloaded dependency hashes against PyPI and produces explicit source URLs/hashes. It packages the current local application wheel; build commands use `--no-index --no-deps` and cannot fetch missing dependencies. The ungenerated template is not a standalone build input.
+
+Before shipping: supply and verify `ffmpeg`/`pactl` runtime tools, validate the generated manifest and AppStream identity with Flathub tooling, test the host socket integration on KDE/GNOME, and assess a RemoteDesktop-portal input backend. Native CLI access to `/dev/uinput` does not establish that a sandbox can use it. Flatpak is deliberately excluded from tagged publishing until these checks pass; removing that gate requires desktop evidence.
+
+## Release evidence
+
+Container checks cannot exercise a real microphone, compositor permissions, focus, global shortcuts or GPU inference. Complete the desktop checklist in CONTRIBUTING.md before describing a release as desktop-tested. The source archive carries packaging scripts, icons, metadata, configuration, tests and the lockfile so downstream packagers can reproduce the build inputs.

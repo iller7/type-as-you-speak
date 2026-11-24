@@ -1,64 +1,12 @@
 # Cutting a release
 
-The tag **is** the release: push a `vX.Y.Z` tag and GitHub Actions
-(`.github/workflows/release.yml`) does the rest of the core channel —
-`check` (tag ↔ `pyproject.toml` ↔ `__init__.py`) → `build` (sdist + wheel +
-`.deb`) → `release` (GitHub release with the CHANGELOG slice as notes and the
-three artifacts attached).
+1. Update `pyproject.toml`, `src/type_as_you_speak/__init__.py`, the AUR `pkgver`, Fedora `Version`, Flatpak source tag/commit, AppStream release entry, README download examples and CHANGELOG. Use a stable `X.Y.Z` version. Run `uv run --locked python scripts/check-release.py` to catch version drift.
+2. Run `make check`, `make build` and the distro package checks. Review dependency/licence changes and complete the real-desktop checklist in CONTRIBUTING.md. Record remaining hardware/platform gaps explicitly.
+3. Merge through a reviewed PR with passing checks. Push an annotated `vX.Y.Z` tag pointing to that commit. Publishing is tag-triggered; do not use a production release tag to test CI.
+4. The release workflow repeats shared code checks and native package builds, verifies the tag, builds Python distributions with the locked backend, checks source contents, and then publishes wheel/sdist, distro-specific `.deb` files, Fedora RPM/SRPM, `SHA256SUMS` and build attestations. Only the final publish job has release-write credentials. Reruns fail rather than overwrite an existing release or assets; investigate partial drafts before retrying.
+5. Verify the release notes, artifact inventory, `sha256sum --check SHA256SUMS` and `gh attestation verify <asset> --repo iller7/type-as-you-speak`. Download and install the matching distro package on a disposable Linux machine.
+6. After the tag exists, calculate the GitHub tag archive's SHA256 and update the AUR recipe. Review the diff before submitting to AUR. Flathub, Copr and PyPI publication are separate explicit actions; they are not enabled by this workflow.
 
-## Checklist
+Never replace an existing release's artifacts to fix a bad build. Publish a new patch version and document the regression. Users can remove the new package and install the previous matching distro package. Preserve configuration and cached models; do not delete user data as a rollback step. Document any future configuration migration and its backward compatibility before shipping it.
 
-1. **Bump the version in the repo** (all must say the same number):
-   - `pyproject.toml` → `version = "X.Y.Z"`
-   - `src/type_as_you_speak/__init__.py` → `__version__ = "X.Y.Z"`
-   - `CHANGELOG.md` → new `## [X.Y.Z] - YYYY-MM-DD` entry (this becomes the
-     release notes)
-   - `data/type-as-you-speak.metainfo.xml` → new `<release>` entry
-   - `packaging/flatpak/*.json` → `"tag": "vX.Y.Z"`
-   - `packaging/fedora/type-as-you-speak.spec` → `Version: X.Y.Z`
-   - `README.md` → the Option C `.deb` one-liner carries the asset name
-     (`type-as-you-speak_X.Y.Z_amd64.deb`) — update it to the new version
-2. **Commit and tag:**
-   ```sh
-   git commit -am "chore: release X.Y.Z"   # or your feature commit(s) first
-   git tag -a vX.Y.Z -m "X.Y.Z — short summary"
-   git push origin master vX.Y.Z
-   ```
-3. **Watch the workflow** (3 green jobs: `check`, `build`, `release`):
-   ```sh
-   gh run list --workflow release --limit 1
-   gh run watch <run-id>          # or: https://github.com/iller7/type-as-you-speak/actions
-   ```
-4. **Verify the release:**
-   - `gh release view vX.Y.Z` — notes match the CHANGELOG slice
-   - artifacts present: `*.whl`, `*.tar.gz`, `*.deb`
-   - spot-check the `.deb` if you like:
-     ```sh
-     gh release download vX.Y.Z -p '*.deb' -D /tmp/tays-deb
-     dpkg-deb -x /tmp/tays-deb/type-as-you-speak_*.deb /tmp/tays-deb/x
-     dpkg-deb -c /tmp/tays-deb/type-as-you-speak_*.deb | head
-     ```
-5. **AUR hash** (hash of the tag tarball — recompute *after* the tag is
-   pushed):
-   ```sh
-   VER=X.Y.Z
-   HASH=$(curl -sL https://github.com/iller7/type-as-you-speak/archive/refs/tags/v$VER.tar.gz | sha256sum | cut -d' ' -f1)
-   ```
-   then update `pkgver` + `sha256sums` in `packaging/aur/PKGBUILD`, commit,
-   and push.
-
-## Manual channels (your accounts)
-
-- **Flathub:** open a PR against Flathub with the bumped manifest
-  (`packaging/flatpak/*.json`) + icons + metainfo.
-- **Copr / Fedora:** build `packaging/fedora/type-as-you-speak.spec` against
-  the tag on Copr.
-- **PyPI:** not automated on purpose. If you ever want it, publish from the
-  released sdist+wheel:
-  `python -m twine upload dist/*`.
-
-## What's deliberately NOT automated
-
-- No auto-bump of the version (the number is decided here, in the repo).
-- No PyPI upload, no Flathub PR, no Copr build — all need your accounts and
-  a deliberate "go".
+See packaging/README.md for the distribution matrix, ABI constraints and experimental Flatpak status. macOS and Windows CI checks portable code only; no desktop installers are published for them.

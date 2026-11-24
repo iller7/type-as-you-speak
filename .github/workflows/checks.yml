@@ -1,0 +1,91 @@
+name: checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: "0.13.9"
+          enable-cache: false
+      - run: uv sync --locked
+      - run: uv run --locked ruff check src scripts tests
+      - run: uv run --locked ruff format --check scripts/*.py tests
+      - run: uv run --locked python scripts/check-release.py
+      - run: uv run --locked zizmor --offline .github/workflows
+      - name: Validate shell scripts and workflows
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          "$(go env GOPATH)/bin/actionlint"
+          shellcheck install.sh bin/*.sh scripts/*.sh packaging/deb/*.sh
+      - name: Check distribution metadata
+        run: |
+          uv run --locked python -m build --no-isolation
+          uv run --locked twine check dist/*.whl dist/*.tar.gz
+          uv run --locked python scripts/check-dist.py
+
+  tests:
+    env:
+      UV_PYTHON: ${{ matrix.python }}
+    name: tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04]
+        python: ["3.11", "3.12", "3.13", "3.14"]
+        include:
+          - os: macos-14
+            python: "3.14"
+          - os: windows-2025
+            python: "3.14"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          version: "0.13.9"
+          enable-cache: false
+      - run: uv sync --locked --extra gui
+      - run: uv run --locked pytest
+      - name: Build and test the installed wheel
+        shell: bash
+        run: |
+          uv run --locked python -m build --no-isolation
+          uv pip install --reinstall --no-deps dist/*.whl
+          cd "${RUNNER_TEMP}"
+          "$GITHUB_WORKSPACE/.venv/$( [ "$RUNNER_OS" = Windows ] && echo Scripts || echo bin )/python" -m type_as_you_speak --help
+          "$GITHUB_WORKSPACE/.venv/$( [ "$RUNNER_OS" = Windows ] && echo Scripts || echo bin )/python" -m type_as_you_speak --version
+          "$GITHUB_WORKSPACE/.venv/$( [ "$RUNNER_OS" = Windows ] && echo Scripts || echo bin )/python" -c 'import numpy, onnxruntime, faster_whisper; from PySide6 import QtWidgets'
+
+  passed:
+    if: always()
+    needs: [quality, tests]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require all checks
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          TESTS: ${{ needs.tests.result }}
+        run: test "$QUALITY" = success && test "$TESTS" = success

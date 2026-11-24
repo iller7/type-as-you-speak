@@ -1,0 +1,14 @@
+[tools]
+python = "3.14.10"
+uv = "0.13.9"
+actionlint = "1.7.12"
+shellcheck = "0.11.0"
+
+[tasks.setup]
+run = "uv sync --locked --extra gui"
+
+[tasks.check]
+run = "make check"
+
+[tasks.build]
+run = "uv run --locked python -m build --no-isolation"

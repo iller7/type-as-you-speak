@@ -34,7 +34,8 @@ from . import config as _config
 def _state_dir() -> Path:
     xdg = os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state"))
     d = Path(xdg) / "type-as-you-speak"
-    d.mkdir(parents=True, exist_ok=True)
+    d.mkdir(mode=0o700, parents=True, exist_ok=True)
+    d.chmod(0o700)
     return d
 
 
@@ -43,7 +44,10 @@ def _pidfile() -> Path:
 
 
 def _logfile() -> Path:
-    return _state_dir() / "live.log"
+    path = _state_dir() / "live.log"
+    path.touch(mode=0o600, exist_ok=True)
+    path.chmod(0o600)
+    return path
 
 
 # ---- environment (safe when launched from a trimmed agent) --------------------
@@ -652,8 +656,8 @@ def cmd_setup(_args) -> int:
         print("         a compositor autostart, …), or enable one:")
         print("           systemctl --user enable --now ydotoold")
     if not in_input:
-        print("         also add yourself to the 'input' group: sudo usermod -aG input $USER")
-        print("         (then log out and back in)")
+        print("         check /dev/uinput permissions and the distro ydotool service.")
+        print("         Prefer a narrowly scoped udev rule; see SECURITY.md before granting input access.")
     else:
         print("  [ok  ] user is in the 'input' group")
 
@@ -899,6 +903,9 @@ def main(argv: list[str] | None = None) -> int:
     if not getattr(args, "func", None):
         build_parser().print_help()
         return 0
+    if sys.platform != "linux" and args.cmd in {"start", "stop", "toggle", "status", "setup", "keybind"}:
+        print("Desktop integration currently requires Linux. macOS and Windows are not supported yet.", file=sys.stderr)
+        return 2
     try:
         return args.func(args)
     except KeyboardInterrupt:

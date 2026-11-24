@@ -1,0 +1,17 @@
+name: Feature request
+description: Describe a use case or compatibility improvement.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour and alternatives
+  - type: input
+    id: platform
+    attributes:
+      label: Relevant distro, desktop or operating system

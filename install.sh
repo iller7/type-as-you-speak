@@ -18,6 +18,11 @@
 #   ./install.sh --applet     # also install the KDE Plasma panel applet (+ its icon)
 set -uo pipefail
 
+if [ "$(uname -s)" != Linux ]; then
+  echo "This installer requires Linux. macOS and Windows desktop support is not available yet." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_ROOT="${TAYS_HOME:-$HOME/.local/share/type-as-you-speak}"
 VENV="$INSTALL_ROOT/venv"
@@ -43,15 +48,15 @@ echo
 say "Checking system prerequisites"
 
 # Python 3.11+ (needed for tomllib in the config reader)
-PY="$(command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || command -v python3.14 2>/dev/null || command -v python3 2>/dev/null || true)"
+PY="$(command -v python3.14 2>/dev/null || command -v python3.13 2>/dev/null || command -v python3.12 2>/dev/null || command -v python3.11 2>/dev/null || command -v python3 2>/dev/null || true)"
 if [ -z "$PY" ]; then
   fail "python3 not found — install Python 3.11+ and re-run"
   exit 1
 fi
 PYVER="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo 0)"
 PYNUM="$(echo "$PYVER" | awk -F. '{print $1*100+$2}')"
-if [ "${PYNUM:-0}" -ge 311 ]; then ok "Python $PYVER ($PY)"; else
-  fail "Python $PYVER is too old — need 3.11+"
+if [ "${PYNUM:-0}" -ge 311 ] && [ "${PYNUM:-0}" -lt 315 ]; then ok "Python $PYVER ($PY)"; else
+  fail "Python $PYVER is unsupported — need Python 3.11–3.14"
   exit 1
 fi
 
@@ -138,7 +143,7 @@ fi
 # ---- 3. put `tays` on PATH ----------------------------------------------------
 mkdir -p "$BIN_DIR"
 if [ -e "$BIN_LINK" ] && [ "$BIN_LINK" -ef "$VENV/bin/tays" ]; then
-  ok "`tays` already linked at $BIN_LINK"
+  ok "tays already linked at $BIN_LINK"
 else
   ln -sf "$VENV/bin/tays" "$BIN_LINK"
   ok "linked $BIN_LINK -> $VENV/bin/tays"
@@ -186,8 +191,8 @@ EOF
     if pgrep -x ydotoold >/dev/null 2>&1; then
       ok "created + started ydotoold user service"
     else
-      warn "could not start ydotoold — make sure your user is in the 'input' group:"
-      echo "         sudo usermod -aG input \$USER     # then log out and back in"
+      warn "could not start ydotoold — check the distro service and /dev/uinput permissions:"
+      echo "         Prefer the distro ydotool service and a narrowly scoped udev rule; see SECURITY.md."
       echo "         systemctl --user enable --now ydotoold"
     fi
   fi
