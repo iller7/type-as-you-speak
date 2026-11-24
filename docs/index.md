@@ -32,4 +32,4 @@ Flatpak remains experimental. macOS and Windows currently have portable-code CI 
 
 ## Free, open development
 
-First-party source uses AGPL-3.0-only. Third-party components retain their own licences.
+First-party source uses [AGPL-3.0-only](licensing.md), with a separate commercial-licensing enquiry path; dependencies, model weights and bundled input tools retain their own licences. Follow the [licensing review](https://github.com/iller7/type-as-you-speak/issues/10), [project direction](project-direction.md) and [automatically generated release changelog](https://github.com/iller7/type-as-you-speak/releases).

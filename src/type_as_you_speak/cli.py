@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Faizal Sahebdin
+# SPDX-License-Identifier: AGPL-3.0-only
 """The `tays` command-line interface.
 
 Commands

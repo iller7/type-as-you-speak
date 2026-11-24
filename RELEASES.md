@@ -22,3 +22,4 @@ gh api --method POST repos/iller7/type-as-you-speak/releases/generate-notes -f t
 ```
 
 Inspect the generated PR range and any compatibility warnings before authorising a release. Generated notes list merged PRs; they do not prove completion of real-desktop or GPU testing.
+

@@ -9,6 +9,7 @@ description = "Mac-like, type-as-you-speak dictation for Linux (Wayland & X11): 
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 license = "AGPL-3.0-only"
+license-files = ["LICENSE", "NOTICE", "COMMERCIAL.md"]
 authors = [{ name = "Faizal Sahebdin", email = "iller7@gmail.com" }]
 keywords = ["dictation", "speech-to-text", "whisper", "wayland", "x11", "linux", "asr"]
 classifiers = [

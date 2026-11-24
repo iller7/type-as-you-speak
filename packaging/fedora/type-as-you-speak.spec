@@ -60,6 +60,8 @@ for size in 512 256 128 64 32; do
 done
 install -Dm644 README.md %{buildroot}/usr/share/doc/%{name}/README.md
 install -Dm644 LICENSE %{buildroot}/usr/share/licenses/%{name}/LICENSE
+install -Dm644 NOTICE %{buildroot}/usr/share/licenses/%{name}/NOTICE
+install -Dm644 COMMERCIAL.md %{buildroot}/usr/share/doc/%{name}/COMMERCIAL.md
 
 %py3_shebang_fix %{buildroot}/opt/%{name}/pydeps
 

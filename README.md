@@ -34,4 +34,4 @@ Use Python 3.14 for development, install the pinned tools, then run `make setup`
 
 ## Licence
 
-The first-party source uses [AGPL-3.0-only](LICENSE). Third-party components retain their own licences.
+The public first-party source uses [AGPL-3.0-only](LICENSE), with [separate commercial licensing enquiries](COMMERCIAL.md) for code the maintainer controls. Dependencies, model weights and bundled tools retain their own terms; see the [licensing guide](docs/licensing.md).
