@@ -306,7 +306,10 @@ PlasmoidItem {
                 font.pixelSize: Math.floor(Kirigami.Units.fontPixelSize) - 1
             }
 
-            PlasmaComponents3.LinkButton {
+            // Kirigami.LinkButton (not PlasmaComponents3.LinkButton): the Plasma
+            // 6 PC3 compat module does not export LinkButton on all distros, so
+            // the applet would fail to compile ("is not a type").
+            Kirigami.LinkButton {
                 text: "github.com/iller7/type-as-you-speak"
                 Layout.alignment: Qt.AlignLeft
                 Layout.topMargin: Kirigami.Units.smallSpacing / 2
