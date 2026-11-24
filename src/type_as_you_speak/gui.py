@@ -4,19 +4,30 @@ A single window to pick the model and every other option instead of editing
 config.toml by hand:
 
   * session panel — live status (polled from ``tays status --json``, showing
-    the EXACT runtime device, e.g. "small.en on NVIDIA GeForce RTX 5090
+    the EXACT runtime device, e.g. "medium.en on NVIDIA GeForce RTX 5090
     (CUDA)") and a start/stop button (drives ``tays toggle`` as a subprocess,
     so the engine always runs in its own process, exactly like the CLI);
-  * General tab — Model & device (with downloaded marks + Download button,
-    Auto / GPU-CUDA / GPU-ROCm(AMD) / CPU radios), Background audio ducking,
-    Corrections (hotwords inline + file, hallucination tails);
+  * General tab — Model & device (downloaded marks + Download button,
+    Auto / GPU-CUDA / GPU-ROCm / CPU radios gated on what the installed
+    CTranslate2 build can actually use), Background audio ducking;
+  * Corrections tab — hotwords (inline + file, with the file's contents shown
+    in an editable area below), hallucination tails (inline + file, same
+    treatment);
   * Advanced tab — Typing & pacing, Decode stability.
 
 Every field carries a hover tooltip AND a context-help line in the window's
-status bar (shown as you hover — robust across desktops). Saving writes
-``~/.config/type-as-you-speak/config.toml`` with ``tomlkit`` in a way that
-preserves the file's existing comments and layout. Requires the optional
-``gui`` extra (PySide6 + tomlkit); the core stays lean.
+status bar (shown as you hover — robust across desktops). Language is a
+dropdown of flags + native names; picking a non-English language warns about
+English-only (.en) models and switches to their multilingual twin when that
+is already downloaded.
+
+User-facing strings go through QObject.tr() so the window is translatable
+once .ts/.qm files are added.
+
+Saving writes ``~/.config/type-as-you-speak/config.toml`` with ``tomlkit`` in
+a way that preserves the file's existing comments and layout, and writes the
+hotwords / tails files when their contents have been edited. Requires the
+optional ``gui`` extra (PySide6 + tomlkit); the core stays lean.
 """
 import json
 import os
@@ -53,6 +64,15 @@ _SPIN_INT = {
 _SPIN_FLOAT = {
     "commit_lag_s": (0.1, 5.0, 0.1),
     "transcribe_every_s": (0.3, 3.0, 0.1),
+}
+
+# English-only models and their multilingual twins (same family). When a
+# non-English language is picked, the .en choice can't be right.
+MULTILINGUAL_TWINS = {
+    "tiny.en": "tiny",
+    "base.en": "base",
+    "small.en": "small",
+    "medium.en": "medium",
 }
 
 # Language picker entries: (code stored in config, native name, flag).
@@ -118,14 +138,14 @@ LANGUAGES = [
 def _lang_display(code: str) -> str | None:
     for c, native, flag in LANGUAGES:
         if c == code:
-            return f"{flag} Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
+            return "🌐 Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
     return None
 
 
 def _lang_code(text: str) -> str:
     t = text.strip()
     for c, native, flag in LANGUAGES:
-        disp = f"{flag} Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
+        disp = "🌐 Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
         if t == disp:
             return c
     m = re.search(r"\(([a-z]{2,3})\)\s*$", t)
@@ -136,8 +156,9 @@ def _lang_code(text: str) -> str:
 # the window's status bar as you hover (context-sensitive help).
 TIPS = {
     "model_name": ("Whisper model: larger = more accurate but slower. The .en "
-                   "models are English-only and the fastest for English. "
-                   "'Not downloaded' models are fetched on demand — use the "
+                   "models are English-only and the fastest for English — "
+                   "pick a non-.en model for other languages. 'Not "
+                   "downloaded' models are fetched on demand — use the "
                    "Download button."),
     "device": ("auto: use the GPU if a model fits, else CPU.  "
                "cuda: force the NVIDIA GPU.  rocm: force an AMD GPU.  "
@@ -147,7 +168,9 @@ TIPS = {
                     "standard pip install is CUDA/CPU only (see the "
                     "CTranslate2 releases page for the ROCm build)."),
     "language": ("Force a language, or Auto-detect per session. Picking the "
-                 "right one improves accuracy and speed."),
+                 "right one improves accuracy and speed — and with a "
+                 "non-English choice the English-only .en models are the "
+                 "wrong tools, so the model is adjusted to match."),
     "cpu_threads": ("CPU threads for the model (CTranslate2). Raise if "
                     "transcription is slow; lower to cap the per-round CPU "
                     "spike."),
@@ -169,10 +192,15 @@ TIPS = {
     "hotwords": ("Comma-separated words to bias the decoder toward — names, "
                  "jargon, product names."),
     "hotwords_file": ("A text file of hotwords (one per line, '#' comments) — "
-                      "shareable; combined with the inline list."),
+                      "shareable; combined with the inline list. The "
+                      "contents below are editable and saved to this file."),
     "hallucination_tails": ("Trailing phrases Whisper may hallucinate over "
                             "trailing silence. A matching tail is stripped "
-                            "before typing."),
+                            "before typing (one per line below)."),
+    "hallucination_tails_file": ("A text file of extra tail phrases (one per "
+                                 "line, '#' comments) — combined with the "
+                                 "inline list. The contents below are "
+                                 "editable and saved to this file."),
 }
 
 
@@ -247,15 +275,27 @@ def _amd_gpu() -> str | None:
     return None
 
 
+def _gpu_count() -> int | None:
+    """GPUs the INSTALLED CTranslate2 build can actually use (via the HIP
+    layer this covers ROCm too). 0 = no usable GPU with this build (CPU-only
+    wheel, or no GPU). None = ctranslate2 not importable (fall back to
+    hardware-only detection)."""
+    try:
+        import ctranslate2
+        return int(ctranslate2.get_cuda_device_count())
+    except Exception:
+        return None
+
+
 def _model_of(text: str) -> str:
     """'small.en  (484 MB) — downloaded' -> 'small.en'."""
-    return text.split("  (")[0].split(" — ")[0].strip()
+    return text.split("  (")[0].split(" — ")[0].split(" · ")[0].strip()
 
 
 class SettingsWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle(f"type-as-you-speak {__version__} — settings")
+        self.setWindowTitle(self.tr("type-as-you-speak {v} — settings").format(v=__version__))
         icon = _icon()
         if icon:
             self.setWindowIcon(icon)
@@ -273,7 +313,7 @@ class SettingsWindow(QMainWindow):
         sess.addWidget(self.session_btn)
         root.addLayout(sess)
 
-        # ---- settings (two tabs) --------------------------------------------
+        # ---- settings (three tabs) ------------------------------------------
         # key -> widget; populated by the builders below.
         self._fields: dict[str, QWidget] = {}
         # widget -> context-help text (status bar on hover)
@@ -289,8 +329,12 @@ class SettingsWindow(QMainWindow):
         gl = QVBoxLayout(general)
         gl.addWidget(self._model_group())
         gl.addWidget(self._audio_group())
-        gl.addWidget(self._corrections_group())
         gl.addStretch(1)
+
+        corrections = QWidget()
+        cl = QVBoxLayout(corrections)
+        cl.addWidget(self._corrections_group())
+        cl.addStretch(1)
 
         advanced = QWidget()
         al = QVBoxLayout(advanced)
@@ -299,26 +343,27 @@ class SettingsWindow(QMainWindow):
         al.addStretch(1)
 
         tabs = QTabWidget()
-        tabs.addTab(general, "General")
-        tabs.addTab(advanced, "Advanced")
+        tabs.addTab(general, self.tr("General"))
+        tabs.addTab(corrections, self.tr("Corrections"))
+        tabs.addTab(advanced, self.tr("Advanced"))
         root.addWidget(tabs, 1)
 
         # ---- actions ----------------------------------------------------------
         actions = QHBoxLayout()
-        self.save_btn = QPushButton("Save")
+        self.save_btn = QPushButton(self.tr("Save"))
         self.save_btn.clicked.connect(self.save)
-        self.revert_btn = QPushButton("Revert")
+        self.revert_btn = QPushButton(self.tr("Revert"))
         self.revert_btn.clicked.connect(self.reload)
-        self.open_btn = QPushButton("Open config file")
+        self.open_btn = QPushButton(self.tr("Open config file"))
         self.open_btn.clicked.connect(self._open_config_file)
         actions.addStretch(1)
         for b in (self.revert_btn, self.open_btn, self.save_btn):
             actions.addWidget(b)
         root.addLayout(actions)
 
-        hint = QLabel(
+        hint = QLabel(self.tr(
             "Changes take effect for the next session — stop and start the "
-            "session to apply them.  Hover any field for an explanation.")
+            "session to apply them.  Hover any field for an explanation."))
         hint.setWordWrap(True)
         root.addWidget(hint)
 
@@ -375,22 +420,43 @@ class SettingsWindow(QMainWindow):
         self._fields[key] = w
         return w
 
+    def _listarea(self, placeholder: str) -> QPlainTextEdit:
+        w = QPlainTextEdit()
+        w.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        w.setPlaceholderText(placeholder)
+        w.setFixedHeight(120)
+        return w
+
     # ---- model picker: availability + download --------------------------------
     def _selected_model(self) -> str:
         return _model_of(self.model_combo.currentText())
 
+    def _selected_lang(self) -> str:
+        return _lang_code(self.lang_combo.currentText())
+
+    def _en_only_marked(self) -> bool:
+        """True when a specific non-English language is active — .en models
+        are the wrong tools then, so they get an explicit mark."""
+        return self._selected_lang() not in ("auto", "en", "")
+
     def _refresh_model_marks(self) -> None:
-        """Rebuild the model list with downloaded / not-downloaded marks."""
+        """Rebuild the model list with downloaded / not-downloaded marks (and
+        an 'English only' mark when a non-English language is selected)."""
         cur = self._selected_model()
+        marked = self._en_only_marked()
         self.model_combo.blockSignals(True)
         self.model_combo.clear()
         for name, size, _note in cli._MODELS:
             mark = " — downloaded" if _model_available(name) else " — not downloaded"
+            if marked and name.endswith(".en"):
+                mark += " · English only"
             self.model_combo.addItem(f"{name}  ({size}){mark}")
         if cur:
             texts = [self.model_combo.itemText(i) for i in range(self.model_combo.count())]
             if not any(_model_of(t) == cur for t in texts):
                 mark = " — downloaded" if _model_available(cur) else " — not downloaded"
+                if marked and cur.endswith(".en"):
+                    mark += " · English only"
                 self.model_combo.addItem(f"{cur}{mark}")
             for i in range(self.model_combo.count()):
                 if _model_of(self.model_combo.itemText(i)) == cur:
@@ -399,17 +465,41 @@ class SettingsWindow(QMainWindow):
         self.model_combo.blockSignals(False)
         self._update_download_btn()
 
+    def _model_lang_sync(self) -> None:
+        """Picked a non-English language while an .en model is selected: the
+        .en model can only transcribe English. Switch to the multilingual
+        twin when it's already downloaded (no surprise fetch), otherwise
+        point at it — and mark the list either way."""
+        self._refresh_model_marks()
+        lang = self._selected_lang()
+        model = self._selected_model()
+        if lang in ("auto", "en", "") or model not in MULTILINGUAL_TWINS:
+            return
+        twin = MULTILINGUAL_TWINS[model]
+        if _model_available(twin):
+            self.model_combo.setCurrentText(twin)
+            native = next((n for c, n, _f in LANGUAGES if c == lang), lang)
+            self.statusBar().showMessage(self.tr(
+                "{m} is English-only — switched to {t} for {n}.").format(
+                m=model, t=twin, n=native))
+        else:
+            native = next((n for c, n, _f in LANGUAGES if c == lang), lang)
+            self.statusBar().showMessage(self.tr(
+                "{m} is English-only — {t} suits {n} better (Download it or "
+                "pick it from the list).").format(m=model, t=twin, n=native))
+        self._update_download_btn()
+
     def _update_download_btn(self) -> None:
         name = self._selected_model()
         if self._dl_thread is not None and self._dl_thread.is_alive():
             self.dl_btn.setEnabled(False)
-            self.dl_btn.setText("Downloading…")
+            self.dl_btn.setText(self.tr("Downloading…"))
         elif _model_available(name):
             self.dl_btn.setEnabled(False)
-            self.dl_btn.setText("Ready ✓")
+            self.dl_btn.setText(self.tr("Ready ✓"))
         else:
             self.dl_btn.setEnabled(True)
-            self.dl_btn.setText("Download")
+            self.dl_btn.setText(self.tr("Download"))
 
     def _download_clicked(self) -> None:
         name = self._selected_model()
@@ -419,7 +509,7 @@ class SettingsWindow(QMainWindow):
         self._dl_result = None
         self._dl_line = f"Downloading {name}…"
         self.dl_btn.setEnabled(False)
-        self.dl_btn.setText("Downloading…")
+        self.dl_btn.setText(self.tr("Downloading…"))
         self._dl_thread = threading.Thread(
             target=self._download_worker, args=(name,), daemon=True)
         self._dl_thread.start()
@@ -429,7 +519,7 @@ class SettingsWindow(QMainWindow):
         loading on CPU). Runs in a background thread; the status timer polls
         _dl_line / _dl_result. Full output is also appended to
         model-download.log (state dir) so failures leave evidence."""
-        code = ("from faster_whisper import WhisperModel; "
+        code = (f"from faster_whisper import WhisperModel; "
                 f"WhisperModel({name!r}, device='cpu', compute_type='int8')")
         lines: list[str] = []
         try:
@@ -466,129 +556,196 @@ class SettingsWindow(QMainWindow):
             pass
 
     def _model_group(self) -> QGroupBox:
-        g = QGroupBox("Model & device")
+        g = QGroupBox(self.tr("Model & device"))
         f = QFormLayout(g)
 
         self.model_combo = QComboBox()
         self.model_combo.setEditable(True)
+        # keep the "English only" / downloaded marks in sync with whichever
+        # of language/model is changed last
+        self.model_combo.currentTextChanged.connect(
+            lambda _t: self._refresh_model_marks())
         self._register(self.model_combo, TIPS["model_name"])
-        self.model_combo.currentTextChanged.connect(lambda _t: self._update_download_btn())
         self._fields["model_name"] = self.model_combo
 
-        self.dl_btn = QPushButton("Download")
-        self.dl_btn.setToolTip(
+        self.dl_btn = QPushButton(self.tr("Download"))
+        self.dl_btn.setToolTip(self.tr(
             "Download the selected model (stored in the Hugging Face cache; "
-            "the session would also fetch it on first use).")
+            "the session would also fetch it on first use)."))
         self.dl_btn.clicked.connect(self._download_clicked)
         self.model_label = QLabel("")
         self.model_label.setWordWrap(True)
         mh = QHBoxLayout()
         mh.addWidget(self.model_combo, 1)
         mh.addWidget(self.dl_btn)
-        f.addRow("Model:", mh)
+        f.addRow(self.tr("Model:"), mh)
         f.addRow("", self.model_label)
-        self._refresh_model_marks()
 
-        # device: radio buttons; each vendor option is offered only when that
-        # vendor's GPU is actually present, otherwise greyed out with a reason.
+        # device: radio buttons. A vendor option is enabled ONLY when the
+        # installed CTranslate2 build can actually use that GPU — hardware
+        # alone (lspci) is not enough, e.g. an AMD iGPU with a CUDA build.
         self._dev_btns: dict[str, QRadioButton] = {}
         self._dev_group = QButtonGroup(self)
         dev_cfg = str(load_config().get("device", "auto"))
         nv = _nvidia_gpu()
         amd = _amd_gpu()
-        options: list[tuple[str, str, str]] = [("auto", "Auto", TIPS["device"])]
-        if nv:
-            options.append(("cuda", f"GPU — CUDA ({nv})", TIPS["device"]))
+        count = _gpu_count()
+        cuda_ok = bool(nv) and (count is None or count > 0)
+        rocm_ok = bool(amd) and (count is None or count > 0) and not nv
+        if count == 0:
+            cuda_tip = self.tr("No usable GPU with the installed CTranslate2 "
+                               "build (it's a CPU-only wheel).")
+            rocm_tip = cuda_tip
+        elif nv and amd:
+            cuda_tip = TIPS["device"]
+            rocm_tip = self.tr("A CUDA build is active on this machine — "
+                               "install CTranslate2's ROCm wheel to use the "
+                               "AMD GPU.")
         else:
-            options.append(("cuda", "GPU — CUDA (NVIDIA)",
-                            "No NVIDIA GPU detected — unavailable on this machine."))
-        if amd:
-            options.append(("rocm", f"GPU — ROCm ({amd})", TIPS["device_rocm"]))
-        else:
-            options.append(("rocm", "GPU — ROCm (AMD)",
-                            "No AMD GPU detected — unavailable on this machine."))
-        options.append(("cpu", "CPU", TIPS["device"]))
+            cuda_tip = TIPS["device"]
+            rocm_tip = TIPS["device_rocm"]
+        options: list[tuple[str, str, str, bool]] = [
+            ("auto", self.tr("Auto"), TIPS["device"], True),
+            ("cuda", (f"GPU — CUDA ({nv})" if nv else self.tr("GPU — CUDA (NVIDIA)")),
+             cuda_tip, cuda_ok),
+            ("rocm", (f"GPU — ROCm ({amd})" if amd else self.tr("GPU — ROCm (AMD)")),
+             rocm_tip, rocm_ok),
+            ("cpu", self.tr("CPU"), TIPS["device"], True),
+        ]
         dev_row = QHBoxLayout()
-        for key, label, tip in options:
+        for key, label, tip, ok in options:
             rb = QRadioButton(label)
-            self._register(rb, tip)
+            rb.setEnabled(ok)
+            self._register(rb, tip if ok else tip + " "
+                           + self.tr("Unavailable on this machine."))
             self._dev_group.addButton(rb)
             self._dev_btns[key] = rb
             dev_row.addWidget(rb)
-        self._dev_btns["cuda"].setEnabled(bool(nv))
-        self._dev_btns["rocm"].setEnabled(bool(amd))
-        target = dev_cfg if dev_cfg in self._dev_btns and self._dev_btns[dev_cfg].isEnabled() else "auto"
+        target = (dev_cfg if dev_cfg in self._dev_btns
+                  and self._dev_btns[dev_cfg].isEnabled() else "auto")
         self._dev_btns[target].setChecked(True)
-        f.addRow("Device:", dev_row)
+        f.addRow(self.tr("Device:"), dev_row)
 
         self.lang_combo = QComboBox()
         self.lang_combo.setEditable(True)
         self._register(self.lang_combo, TIPS["language"])
         self.lang_combo.addItems(
-            [f"{flag} Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
+            ["🌐 Auto-detect" if c == "auto" else f"{flag} {native} ({c})"
              for c, native, flag in LANGUAGES])
-        lang = str(load_config().get("language", "auto"))
-        disp = _lang_display(lang)
-        if disp is None:
-            self.lang_combo.insertItem(0, lang)
-            self.lang_combo.setCurrentText(lang)
-        else:
-            self.lang_combo.setCurrentText(disp)
+        self.lang_combo.currentTextChanged.connect(
+            lambda _t: (self._update_download_btn(), self._model_lang_sync()))
         self._fields["language"] = self.lang_combo
-        f.addRow("Language:", self.lang_combo)
+        f.addRow(self.tr("Language:"), self.lang_combo)
 
-        f.addRow("CPU threads:", self._spin("cpu_threads"))
+        f.addRow(self.tr("CPU threads:"), self._spin("cpu_threads"))
+
+        self._refresh_model_marks()
         return g
 
     def _timing_group(self) -> QGroupBox:
-        g = QGroupBox("Typing & pacing")
+        g = QGroupBox(self.tr("Typing & pacing"))
         f = QFormLayout(g)
-        f.addRow("Type speed (ms/key):", self._spin("type_ms"))
-        f.addRow("Commit lag (s):", self._dspin("commit_lag_s"))
-        f.addRow("Transcribe every (s):", self._dspin("transcribe_every_s"))
+        f.addRow(self.tr("Type speed (ms/key):"), self._spin("type_ms"))
+        f.addRow(self.tr("Commit lag (s):"), self._dspin("commit_lag_s"))
+        f.addRow(self.tr("Transcribe every (s):"), self._dspin("transcribe_every_s"))
         return g
 
     def _audio_group(self) -> QGroupBox:
-        g = QGroupBox("Background audio while dictating")
+        g = QGroupBox(self.tr("Background audio while dictating"))
         f = QFormLayout(g)
-        f.addRow("Duck level (%, 0 = hard mute):", self._spin("duck_volume_pct"))
-        f.addRow("Fade time (ms):", self._spin("duck_ramp_ms"))
+        f.addRow(self.tr("Duck level (%, 0 = hard mute):"), self._spin("duck_volume_pct"))
+        f.addRow(self.tr("Fade time (ms):"), self._spin("duck_ramp_ms"))
         return g
 
     def _decode_group(self) -> QGroupBox:
-        g = QGroupBox("Decode stability")
+        g = QGroupBox(self.tr("Decode stability"))
         f = QFormLayout(g)
-        f.addRow("No-repeat N-gram size (0 = off):", self._spin("no_repeat_ngram_size"))
-        w = QCheckBox("Condition on previous text")
+        f.addRow(self.tr("No-repeat N-gram size (0 = off):"),
+                 self._spin("no_repeat_ngram_size"))
+        w = QCheckBox(self.tr("Condition on previous text"))
         w.setChecked(bool(load_config().get("condition_on_previous_text", False)))
         self._register(w, TIPS["condition_on_previous_text"])
         self._fields["condition_on_previous_text"] = w
         f.addRow(w)
         return g
 
-    def _corrections_group(self) -> QGroupBox:
-        g = QGroupBox("Corrections")
-        f = QFormLayout(g)
-        f.addRow("Hotwords (comma-separated):", self._line("hotwords"))
-
+    def _file_row(self, key: str, browse_title: str, area: QPlainTextEdit) -> QHBoxLayout:
+        """[path] [Browse…] [Open in editor] — for a file-backed list field."""
+        self._fields[key] = self._line(key)
         hf = QHBoxLayout()
-        self.hotwords_file_edit = self._line("hotwords_file")
-        browse = QPushButton("Browse…")
-        browse.clicked.connect(self._browse_hotwords_file)
-        editor = QPushButton("Open in editor")
-        editor.clicked.connect(lambda: self._open_file(self.hotwords_file_edit.text()))
-        hf.addWidget(self.hotwords_file_edit, 1)
+        hf.addWidget(self._fields[key], 1)
+        browse = QPushButton(self.tr("Browse…"))
+        browse.clicked.connect(lambda: self._browse_file(key, browse_title))
+        editor = QPushButton(self.tr("Open in editor"))
+        editor.clicked.connect(
+            lambda: self._open_file(self._fields[key].text()))
         hf.addWidget(browse)
         hf.addWidget(editor)
-        f.addRow("Hotwords file:", hf)
+        return hf
+
+    def _corrections_group(self) -> QGroupBox:
+        g = QGroupBox(self.tr("Corrections"))
+        f = QFormLayout(g)
+        f.addRow(self.tr("Hotwords (comma-separated):"), self._line("hotwords"))
+
+        hw_area = self._listarea(self.tr("Hotwords file contents — edit and Save."))
+        self._register(hw_area, TIPS["hotwords_file"])
+        self.hw_file_area = hw_area
+        f.addRow(self.tr("Hotwords file:"), self._file_row("hotwords_file",
+                                                            self.tr("Choose a hotwords file"), hw_area))
+        f.addRow("", hw_area)
 
         w = QPlainTextEdit()
         w.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        w.setFixedHeight(120)
         w.setPlainText("\n".join(load_config().get("hallucination_tails", [])))
         self._register(w, TIPS["hallucination_tails"])
         self._fields["hallucination_tails"] = w
-        f.addRow("Hallucination tails (one per line):", w)
+        f.addRow(self.tr("Hallucination tails (one per line):"), w)
+
+        tails_area = self._listarea(
+            self.tr("Tails file contents — edit and Save."))
+        self._register(tails_area, TIPS["hallucination_tails_file"])
+        self.tails_file_area = tails_area
+        f.addRow(self.tr("Tails file:"), self._file_row("hallucination_tails_file",
+                                                         self.tr("Choose a tails file"),
+                                                         tails_area))
+        f.addRow("", tails_area)
         return g
+
+    # ---- file-backed contents: load / save -----------------------------------
+    def _load_file_area(self, key: str, area: QPlainTextEdit) -> None:
+        p = str(load_config().get(key, "")).strip()
+        if p:
+            try:
+                area.setPlainText(Path(p).expanduser().read_text(encoding="utf-8"))
+                return
+            except OSError:
+                area.setPlainText("")
+                area.setPlaceholderText(
+                    self.tr("File not found — it will be created on Save."))
+        else:
+            area.setPlainText("")
+
+    def _save_file_area(self, key: str, area: QPlainTextEdit, label: str) -> None:
+        p = str(self._fields[key].text()).strip()
+        text = area.toPlainText()
+        if p:
+            target = Path(p).expanduser()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(text if text.endswith("\n") else text + "\n",
+                              encoding="utf-8")
+        elif text.strip():
+            QMessageBox.information(
+                self, self.tr("Save"),
+                self.tr("{l}: contents were NOT saved — set a file path first.").format(l=label))
+
+    def _browse_file(self, key: str, title: str) -> None:
+        start = str(self._fields[key].text()).strip() or str(Path.home())
+        p = QFileDialog.getOpenFileName(self, title, start,
+                                        self.tr("Text files (*.txt);;All files (*)"))
+        if p:
+            self._fields[key].setText(p[0])
 
     # ---- values <-> widgets ----------------------------------------------------
     def _value_for(self, key: str, widget: QWidget):
@@ -613,7 +770,6 @@ class SettingsWindow(QMainWindow):
         if isinstance(widget, QComboBox):
             if key == "model_name":
                 widget.setEditText(str(value))
-                self._refresh_model_marks()   # re-apply availability marks
                 return
             if key == "language":
                 disp = _lang_display(str(value))
@@ -655,7 +811,10 @@ class SettingsWindow(QMainWindow):
             if key in cfg:
                 self._set_widget(key, widget, cfg[key])
         self._set_device(str(cfg.get("device", "auto")))
-        self.statusBar().showMessage("Settings reloaded from config.")
+        self._load_file_area("hotwords_file", self.hw_file_area)
+        self._load_file_area("hallucination_tails_file", self.tails_file_area)
+        self._refresh_model_marks()
+        self.statusBar().showMessage(self.tr("Settings reloaded from config."))
 
     # ---- save / revert / open ---------------------------------------------------
     def save(self) -> None:
@@ -673,28 +832,30 @@ class SettingsWindow(QMainWindow):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(tomlkit.dumps(doc))
         except Exception as e:
-            QMessageBox.critical(self, "Save failed",
-                                 f"Could not write {path}:\n{e}")
+            QMessageBox.critical(self, self.tr("Save failed"),
+                                 self.tr("Could not write {p}:").format(p=path) + f"\n{e}")
+            return
+        try:
+            self._save_file_area("hotwords_file", self.hw_file_area,
+                                 self.tr("Hotwords file"))
+            self._save_file_area("hallucination_tails_file", self.tails_file_area,
+                                 self.tr("Tails file"))
+        except Exception as e:
+            QMessageBox.warning(self, self.tr("Save"),
+                                self.tr("Config saved, but a file could not be "
+                                        "written: {e}").format(e=e))
             return
         self.statusBar().showMessage(
-            f"Saved to {path} — applies to the next session.")
+            self.tr("Saved to {p} — applies to the next session.").format(p=str(path)))
 
     def _open_config_file(self) -> None:
         self._open_file(str(user_config_path()))
 
     def _open_file(self, path: str) -> None:
         if not path or not Path(path).is_file():
-            QMessageBox.information(self, "Open", "No such file.")
+            QMessageBox.information(self, self.tr("Open"), self.tr("No such file."))
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(path).expanduser())))
-
-    def _browse_hotwords_file(self) -> None:
-        start = self.hotwords_file_edit.text().strip() or str(Path.home())
-        p = QFileDialog.getOpenFileName(
-            self, "Choose a hotwords file", start,
-            "Text files (*.txt);;All files (*)")
-        if p:
-            self.hotwords_file_edit.setText(p[0])
 
     # ---- session control -----------------------------------------------------
     def _tays(self, *args: str) -> subprocess.CompletedProcess:
@@ -711,11 +872,19 @@ class SettingsWindow(QMainWindow):
             if gpu:
                 on = f"{gpu} ({dev.upper()})"
             elif dev == "cpu":
-                on = "CPU (int8)"
+                on = self.tr("CPU (int8)")
             else:
                 on = dev.upper()
-            return f"● Listening — {model} on {on} (pid {st.get('pid')})"
-        return f"● Stopped — {model} (device: {dev})"
+            line = self.tr("● Listening — {m} on {d} (pid {p})").format(
+                m=model, d=on, p=st.get("pid"))
+            # The running session keeps the device it STARTED with; a config
+            # change applies to the next session. Say so, or the panel and
+            # the radio buttons look out of sync.
+            cfg_dev = str(load_config().get("device", "auto"))
+            if cfg_dev != dev:
+                line += "  " + self.tr("(configured: {c} — applies to the next session)").format(c=cfg_dev)
+            return line
+        return self.tr("● Stopped — {m} (device: {d})").format(m=model, d=dev)
 
     def _update_status(self) -> None:
         # model download progress (background thread)
@@ -730,21 +899,21 @@ class SettingsWindow(QMainWindow):
                 # and overwrite the real message with "unknown error".
                 self._dl_thread = None
                 ok, msg = self._dl_result or (
-                    False, "unknown error — see model-download.log in "
-                          "~/.local/state/type-as-you-speak/")
+                    False, self.tr("unknown error — see model-download.log in "
+                                  "~/.local/state/type-as-you-speak/"))
                 self._dl_result = None
                 self.model_label.setText(
-                    f"Downloaded {self._dl_name} ✓ — ready to use"
-                    if ok else f"Download failed: {msg}")
+                    self.tr("Downloaded {n} ✓ — ready to use").format(n=self._dl_name)
+                    if ok else self.tr("Download failed: {e}").format(e=msg))
                 self._refresh_model_marks()
         try:
             p = self._tays("status", "--json")
             st = json.loads(p.stdout)
         except Exception:
-            self.status_label.setText("status: (unavailable)")
+            self.status_label.setText(self.tr("status: (unavailable)"))
             return
         self.status_label.setText(self._status_line(st))
-        self.session_btn.setText("Stop" if st.get("running") else "Start")
+        self.session_btn.setText(self.tr("Stop") if st.get("running") else self.tr("Start"))
 
     def _session_clicked(self) -> None:
         try:
@@ -753,13 +922,14 @@ class SettingsWindow(QMainWindow):
             if detail:
                 self.statusBar().showMessage(detail[-1])
         except Exception as e:
-            QMessageBox.warning(self, "Session", f"toggle failed: {e!r}")
+            QMessageBox.warning(self, self.tr("Session"),
+                                self.tr("toggle failed: {e!r}").format(e=e))
         self._update_status()
 
 
 def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     win = SettingsWindow()
-    win.resize(700, 760)
+    win.resize(720, 780)
     win.show()
     return app.exec()
