@@ -152,55 +152,66 @@ def _lang_code(text: str) -> str:
     return m.group(1) if m else (t or "auto")
 
 
-# Hover explanations for every field (grounded in the README). Also shown in
-# the window's status bar as you hover (context-sensitive help).
+# Hover explanations for every field. Plain English first; the technical
+# detail (if any) comes after the first sentence. Also shown in the window's
+# status bar as you hover (context-sensitive help).
 TIPS = {
-    "model_name": ("Whisper model: larger = more accurate but slower. The .en "
-                   "models are English-only and the fastest for English — "
-                   "pick a non-.en model for other languages. 'Not "
-                   "downloaded' models are fetched on demand — use the "
-                   "Download button."),
-    "device": ("auto: use the GPU if a model fits, else CPU.  "
-               "cuda: force the NVIDIA GPU.  rocm: force an AMD GPU.  "
-               "cpu: never touch the GPU — less VRAM and smaller per-round "
-               "CPU spikes (useful when the GPU is busy, e.g. Ollama)."),
-    "device_rocm": ("AMD GPU via ROCm. Needs CTranslate2's ROCm wheel — the "
-                    "standard pip install is CUDA/CPU only (see the "
-                    "CTranslate2 releases page for the ROCm build)."),
-    "language": ("Force a language, or Auto-detect per session. Picking the "
-                 "right one improves accuracy and speed — and with a "
-                 "non-English choice the English-only .en models are the "
-                 "wrong tools, so the model is adjusted to match."),
-    "cpu_threads": ("CPU threads for the model (CTranslate2). Raise if "
-                    "transcription is slow; lower to cap the per-round CPU "
-                    "spike."),
-    "type_ms": ("Milliseconds per key when typing. Raise to ~10 if an app "
-                "drops characters."),
-    "commit_lag_s": ("How much recent audio to hold uncommitted so words can "
-                     "finalise with full context (the Mac-like behaviour)."),
-    "transcribe_every_s": ("How often to re-transcribe the pending audio "
-                           "while you keep talking."),
-    "duck_volume_pct": ("Background-audio level while the mic is live, as % "
-                        "of the sink volume. 0 = the old hard-mute."),
-    "duck_ramp_ms": ("Fade time (ms) of the volume dip and restore — the "
-                     "smoothness of the duck."),
-    "no_repeat_ngram_size": ("Block repeated N-grams to suppress repetition "
-                             "loops under GPU contention. 0 = off."),
-    "condition_on_previous_text": ("Let Whisper use earlier segments as "
-                                   "context. Off avoids re-emitted phrases; "
-                                   "on can add coherence."),
-    "hotwords": ("Comma-separated words to bias the decoder toward — names, "
-                 "jargon, product names."),
-    "hotwords_file": ("A text file of hotwords (one per line, '#' comments) — "
-                      "shareable; combined with the inline list. The "
-                      "contents below are editable and saved to this file."),
-    "hallucination_tails": ("Trailing phrases Whisper may hallucinate over "
-                            "trailing silence. A matching tail is stripped "
-                            "before typing (one per line below)."),
-    "hallucination_tails_file": ("A text file of extra tail phrases (one per "
-                                 "line, '#' comments) — combined with the "
-                                 "inline list. The contents below are "
-                                 "editable and saved to this file."),
+    "model_name": ("Which speech-recognition model to use. Bigger models understand "
+                   "better but are slower and use more memory — pick one marked "
+                   "'downloaded' for everyday use. Note: models ending in .en "
+                   "understand English only."),
+    "device": ("Where the thinking happens. Auto picks the best option: your "
+               "graphics card (GPU) if it can hold the model, otherwise the main "
+               "processor (CPU). The GPU is faster; the CPU is calmer on the "
+               "battery and doesn't compete with other GPU work."),
+    "device_rocm": ("Support for AMD graphics cards. Not available on this "
+                    "machine — the installed build is for NVIDIA (CUDA) cards. "
+                    "For an AMD GPU you'd need CTranslate2's ROCm build."),
+    "language": ("The language you'll be speaking. Setting it makes recognition "
+                 "more accurate and a bit faster. If it's not English, avoid the "
+                 ".en models — they understand English only (the list will mark "
+                 "them, and can switch to the matching all-language model)."),
+    "cpu_threads": ("How many CPU cores the model may use while thinking. More "
+                    "cores = faster, but a bigger short CPU spike. Leave it at "
+                    "the default unless transcription feels slow."),
+    "type_ms": ("How quickly words are typed into your window (milliseconds "
+                "per key). If an app sometimes drops letters, raise this — 10 "
+                "is a good test value."),
+    "commit_lag_s": ("How long a word waits before it's typed. This little "
+                     "pause is what lets it phrase things with the full "
+                     "sentence in mind, so words land and then never change — "
+                     "the Mac-like feel. Lower = snappier, higher = more "
+                     "polished."),
+    "transcribe_every_s": ("How often it re-listens to what you've just said "
+                           "while you keep talking, so it can adjust the "
+                           "wording as the sentence grows."),
+    "duck_volume_pct": ("How quiet the music and other sound get while you're "
+                        "talking, as a percentage of the volume. 0 = turn it "
+                        "off completely."),
+    "duck_ramp_ms": ("How gently the sound fades down and back up (in "
+                     "milliseconds). Larger = smoother, less noticeable."),
+    "no_repeat_ngram_size": ("A safety switch that stops the model repeating "
+                             "itself when the GPU is overloaded. Leave it on "
+                             "(2); 0 turns it off."),
+    "condition_on_previous_text": ("Let the model use your earlier words as "
+                                   "context. Off is safer: it stops the model "
+                                   "re-typing a phrase it already gave you."),
+    "hotwords": ("Words the app keeps getting wrong — names, products, "
+                 "jargon. One per line (commas work too). Keep it short: "
+                 "every entry nudges the model a little, so a very long list "
+                 "can backfire."),
+    "hotwords_file": ("A text file that holds the hotwords list, so it's easy "
+                      "to share or keep out of the settings file. Edit the box "
+                      "above and Save writes it there."),
+    "hallucination_tails": ("Nonsense phrases the model sometimes adds at the "
+                            "end of a sentence when you pause — like 'thanks "
+                            "for watching' or 'see you next time'. Add any you "
+                            "see, one per line, and they'll be stripped before "
+                            "they're typed."),
+    "hallucination_tails_file": ("A text file that holds the tails list, so "
+                                 "it's easy to share or keep out of the "
+                                 "settings file. Edit the box above and Save "
+                                 "writes it there."),
 }
 
 
@@ -669,76 +680,89 @@ class SettingsWindow(QMainWindow):
         f.addRow(w)
         return g
 
-    def _file_row(self, key: str, browse_title: str, area: QPlainTextEdit) -> QHBoxLayout:
-        """[path] [Browse…] [Open in editor] — for a file-backed list field."""
-        self._fields[key] = self._line(key)
+    # ---- corrections: one editor per list + one optional file ----------------
+    def _default_file_for(self, key: str) -> str:
+        """The natural home for a list file (next to the settings file) —
+        offered in the field when the config has no entry yet, so there is
+        always a visible, sensible path; saving with it creates the file."""
+        name = {"hotwords_file": "hotwords.txt",
+                "hallucination_tails_file": "hallucination-tails.txt"}.get(
+            key, key + ".txt")
+        return str(user_config_path().parent / name)
+
+    def _file_row(self, key: str, browse_title: str) -> QHBoxLayout:
+        """[path] [Browse…] [Open in editor] — where the list is kept."""
+        cfg = str(load_config().get(key, "")).strip() or self._default_file_for(key)
+        w = QLineEdit(cfg)
+        self._register(w, TIPS[key])
+        self._fields[key] = w
         hf = QHBoxLayout()
-        hf.addWidget(self._fields[key], 1)
+        hf.addWidget(w, 1)
         browse = QPushButton(self.tr("Browse…"))
         browse.clicked.connect(lambda: self._browse_file(key, browse_title))
         editor = QPushButton(self.tr("Open in editor"))
-        editor.clicked.connect(
-            lambda: self._open_file(self._fields[key].text()))
+        editor.clicked.connect(lambda: self._open_file(w.text()))
         hf.addWidget(browse)
         hf.addWidget(editor)
         return hf
 
+    def _effective_list(self, list_key: str, file_key: str) -> list[str]:
+        """The list that's actually in effect: the inline settings value plus
+        the file, deduped (first occurrence wins) — the same combination the
+        engine uses, so the editor shows exactly what's active."""
+        cfg = load_config()
+        inline = cfg.get(list_key, "")
+        if isinstance(inline, str):
+            entries = [e.strip() for e in re.split(r"[,;]", inline) if e.strip()]
+        else:
+            entries = [str(e).strip() for e in inline if str(e).strip()]
+        p = str(cfg.get(file_key, "")).strip()
+        if not p:
+            # No entry in the config yet: if the natural home file exists,
+            # that's clearly the intended list — show it (Save wires it up).
+            cand = self._default_file_for(file_key)
+            if Path(cand).expanduser().is_file():
+                p = cand
+        if p:
+            try:
+                text = Path(p).expanduser().read_text(encoding="utf-8")
+                for line in text.splitlines():
+                    e = line.split("#", 1)[0].strip()
+                    if e:
+                        entries.append(e)
+            except OSError:
+                pass  # missing file: inline value only
+        seen, out = set(), []
+        for e in entries:
+            k = e.casefold()
+            if k not in seen:
+                seen.add(k)
+                out.append(e)
+        return out
+
     def _corrections_group(self) -> QGroupBox:
         g = QGroupBox(self.tr("Corrections"))
         f = QFormLayout(g)
-        f.addRow(self.tr("Hotwords (comma-separated):"), self._line("hotwords"))
 
-        hw_area = self._listarea(self.tr("Hotwords file contents — edit and Save."))
-        self._register(hw_area, TIPS["hotwords_file"])
-        self.hw_file_area = hw_area
-        f.addRow(self.tr("Hotwords file:"), self._file_row("hotwords_file",
-                                                            self.tr("Choose a hotwords file"), hw_area))
-        f.addRow("", hw_area)
+        self.hw_area = self._listarea(self.tr("One word or phrase per line…"))
+        self._register(self.hw_area, TIPS["hotwords"])
+        f.addRow(self.tr("Hotwords — words it should hear right:"), self.hw_area)
+        f.addRow("", self._file_row("hotwords_file",
+                                    self.tr("Choose a hotwords file")))
 
-        w = QPlainTextEdit()
-        w.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-        w.setFixedHeight(120)
-        w.setPlainText("\n".join(load_config().get("hallucination_tails", [])))
-        self._register(w, TIPS["hallucination_tails"])
-        self._fields["hallucination_tails"] = w
-        f.addRow(self.tr("Hallucination tails (one per line):"), w)
-
-        tails_area = self._listarea(
-            self.tr("Tails file contents — edit and Save."))
-        self._register(tails_area, TIPS["hallucination_tails_file"])
-        self.tails_file_area = tails_area
-        f.addRow(self.tr("Tails file:"), self._file_row("hallucination_tails_file",
-                                                         self.tr("Choose a tails file"),
-                                                         tails_area))
-        f.addRow("", tails_area)
+        self.tails_area = self._listarea(self.tr("One phrase per line…"))
+        self._register(self.tails_area, TIPS["hallucination_tails"])
+        f.addRow(self.tr("Tails — phrases to strip off the end:"), self.tails_area)
+        f.addRow("", self._file_row("hallucination_tails_file",
+                                    self.tr("Choose a tails file")))
         return g
 
-    # ---- file-backed contents: load / save -----------------------------------
-    def _load_file_area(self, key: str, area: QPlainTextEdit) -> None:
-        p = str(load_config().get(key, "")).strip()
-        if p:
-            try:
-                area.setPlainText(Path(p).expanduser().read_text(encoding="utf-8"))
-                return
-            except OSError:
-                area.setPlainText("")
-                area.setPlaceholderText(
-                    self.tr("File not found — it will be created on Save."))
-        else:
-            area.setPlainText("")
-
-    def _save_file_area(self, key: str, area: QPlainTextEdit, label: str) -> None:
-        p = str(self._fields[key].text()).strip()
-        text = area.toPlainText()
-        if p:
-            target = Path(p).expanduser()
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(text if text.endswith("\n") else text + "\n",
-                              encoding="utf-8")
-        elif text.strip():
-            QMessageBox.information(
-                self, self.tr("Save"),
-                self.tr("{l}: contents were NOT saved — set a file path first.").format(l=label))
+    def _load_areas(self) -> None:
+        self.hw_area.setPlainText(
+            "\n".join(self._effective_list("hotwords", "hotwords_file")))
+        self.tails_area.setPlainText(
+            "\n".join(self._effective_list("hallucination_tails",
+                                           "hallucination_tails_file")))
 
     def _browse_file(self, key: str, title: str) -> None:
         start = str(self._fields[key].text()).strip() or str(Path.home())
@@ -807,18 +831,36 @@ class SettingsWindow(QMainWindow):
     def reload(self) -> None:
         """Refresh every widget from the current config (file + defaults)."""
         cfg = load_config()
+        file_keys = ("hotwords_file", "hallucination_tails_file")
         for key, widget in self._fields.items():
             if key in cfg:
-                self._set_widget(key, widget, cfg[key])
+                value = cfg[key]
+                if key in file_keys and not str(value).strip():
+                    # keep the sensible default entry (next to the settings)
+                    # rather than showing an empty path
+                    value = self._default_file_for(key)
+                self._set_widget(key, widget, value)
         self._set_device(str(cfg.get("device", "auto")))
-        self._load_file_area("hotwords_file", self.hw_file_area)
-        self._load_file_area("hallucination_tails_file", self.tails_file_area)
+        self._load_areas()
         self._refresh_model_marks()
         self.statusBar().showMessage(self.tr("Settings reloaded from config."))
 
     # ---- save / revert / open ---------------------------------------------------
     def save(self) -> None:
         path = user_config_path()
+
+        # Resolve the correction lists first: the editor's content goes to the
+        # file when a path is set (and the inline copy is cleared, so the list
+        # lives in exactly one place), otherwise it stays in the settings.
+        lists = []
+        for file_key, area in (("hotwords_file", self.hw_area),
+                               ("hallucination_tails_file", self.tails_area)):
+            p = str(self._fields[file_key].text()).strip()
+            lines = [e.strip() for line in area.toPlainText().splitlines()
+                     for e in re.split(r"[,;]", line) if e.strip()]
+            lists.append((Path(p).expanduser() if p else None, lines))
+        (hw_target, hw_lines), (tl_target, tl_lines) = lists
+
         try:
             if path.is_file():
                 doc = tomlkit.parse(path.read_text())
@@ -829,21 +871,27 @@ class SettingsWindow(QMainWindow):
             for key, widget in self._fields.items():
                 doc[key] = self._value_for(key, widget)
             doc["device"] = self._device_value()
+            doc["hotwords"] = "" if hw_target else ",".join(hw_lines)
+            doc["hallucination_tails"] = [] if tl_target else list(tl_lines)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(tomlkit.dumps(doc))
         except Exception as e:
             QMessageBox.critical(self, self.tr("Save failed"),
                                  self.tr("Could not write {p}:").format(p=path) + f"\n{e}")
             return
+
+        # Write the list files (creating them if needed).
         try:
-            self._save_file_area("hotwords_file", self.hw_file_area,
-                                 self.tr("Hotwords file"))
-            self._save_file_area("hallucination_tails_file", self.tails_file_area,
-                                 self.tr("Tails file"))
+            for target, lines in ((hw_target, hw_lines), (tl_target, tl_lines)):
+                if target is not None:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(
+                        "\n".join(lines) + ("\n" if lines else ""),
+                        encoding="utf-8")
         except Exception as e:
             QMessageBox.warning(self, self.tr("Save"),
-                                self.tr("Config saved, but a file could not be "
-                                        "written: {e}").format(e=e))
+                                self.tr("Config saved, but a list file could not "
+                                        "be written: {e}").format(e=e))
             return
         self.statusBar().showMessage(
             self.tr("Saved to {p} — applies to the next session.").format(p=str(path)))
