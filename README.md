@@ -173,10 +173,15 @@ tays gui
 ```
 
 It shows a live start/stop panel (driven by `tays status --json`, naming the
-exact runtime device — e.g. "small.en on NVIDIA GeForce RTX 5090 (CUDA)") and
-every config option, on two tabs:
+exact runtime device — e.g. "small.en on NVIDIA GeForce RTX 5090 (CUDA)";
+while a session is running on one device but the config selects another, it
+says "(configured: … — applies to the next session)" so the two never look
+out of sync) and every config option, on three tabs:
 
-- **General** — Model & device, Background audio, Corrections
+- **General** — Model & device, Background audio
+- **Corrections** — Hotwords (inline + file, with the file's contents shown
+  in an editable area below — edit and **Save** writes it back), and
+  Hallucination tails (inline list + file, same treatment)
 - **Advanced** — Typing & pacing, Decode stability
 
 Details:
@@ -184,18 +189,52 @@ Details:
 - **Model picker** marks each model *downloaded* / *not downloaded*; the
   **Download** button fetches the selected model on demand (it would be
   fetched at session start anyway — this just makes it visible and safe).
+  With a non-English language selected, the English-only `.en` models are
+  marked "English only", and if you switch to such a model's multilingual
+  twin (e.g. `small.en` → `small`) while it is already downloaded, the
+  picker switches to it automatically — otherwise it points at the twin.
 - **Device** is a radio choice (Auto / GPU-CUDA / GPU-ROCm(AMD) / CPU) —
-  each vendor option appears only when that vendor's GPU is present, and is
-  greyed out with a reason otherwise. AMD ROCm needs CTranslate2's ROCm
-  wheel (the standard pip install is CUDA/CPU only).
+  each vendor option is enabled only when the *installed CTranslate2 build*
+  can actually use that GPU (hardware presence alone isn't enough: an AMD
+  iGPU with the CUDA build stays greyed out, with the reason in the
+  tooltip). AMD ROCm needs CTranslate2's ROCm wheel (the standard pip
+  install is CUDA/CPU only).
 - **Language** is a dropdown with flags and native names
   (🇬🇧 English, 🇫🇷 Français, … — editable for the long tail).
 - **Hover any field** and the window's status bar explains what it does
   (plus a native tooltip).
 
-**Save** writes your `config.toml` preserving its comments; **Revert**
-reloads it; **Open config file** opens it in your editor. Changes apply to
-the next session.
+**Save** writes your `config.toml` preserving its comments, and writes the
+hotwords / tails files when their contents were edited; **Revert** reloads;
+**Open config file** opens it in your editor. Changes apply to the next
+session.
+
+### Panel applet (KDE Plasma)
+
+For an always-present mic icon in your panel — no window, no process of its
+own (it runs inside `plasmashell`, and drives `tays status --json` /
+`tays toggle` as short-lived commands):
+
+- **Grey icon** while stopped, **red** while the session is live.
+- **Left-click** — status (model + actual GPU) with Start/Stop and
+  Settings.
+- **Right-click** — Start/Stop, Settings (opens `tays gui`), Status, About.
+
+Install it (needs the app installed as above — the applet finds `tays` in
+your usual locations):
+
+```bash
+cd type-as-you-speak
+plasmapkg2 --type Plasma/Applet --add --path "$PWD/applet"   # if plasmapkg2 exists
+# or, anywhere (copies into the per-user plasmoid dir):
+mkdir -p ~/.local/share/plasma/plasmoids
+cp -r applet ~/.local/share/plasma/plasmoids/org.iller7.typeasyspeak
+```
+
+Then right-click your panel → **Add Widgets…** → search "type-as-you-speak"
+→ add. To update after a new version: remove it from the panel, re-copy,
+re-add. (Plasma keeps a live instance in memory — re-adding is the clean
+reload.)
 
 ---
 
@@ -218,6 +257,7 @@ cp config/default.toml ~/.config/type-as-you-speak/config.toml
 | `transcribe_every_s` | `0.9` | how often the pending audio is re-transcribed |
 | `type_ms` | `5` | ydotool ms per key (raise to `10` if an app drops characters) |
 | `hallucination_tails` | *(list)* | trailing phrases stripped before typing (add any you spot) |
+| `hallucination_tails_file` | *(empty)* | path to a tails text file (one per line, `#` comments) — a shareable list; combined with the inline list (like `hotwords_file`) |
 | `no_repeat_ngram_size` | `2` | blocks repeated N-grams in the decode (suppresses `Cl- Cl- Cl-` loops when the GPU is busy; `0` = off) |
 | `condition_on_previous_text` | `false` | `false` = segments don't re-emit earlier text (suppresses duplicated phrases) |
 | `hotwords` | *(empty)* | words/phrases to bias the decoder toward (proper nouns, names, jargon); comma-separated |

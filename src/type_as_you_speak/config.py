@@ -67,6 +67,11 @@ DEFAULTS = {
         "see you next time",
         "voice to text",
     ],
+    # Optional file with extra tail phrases (one per line; '#' comments and
+    # blank lines ignored), combined with the inline list above and deduped.
+    # "" = no file; a missing/unreadable file is skipped with a warning (the
+    # inline list still applies).
+    "hallucination_tails_file": "",
 }
 
 def _env_bool(raw: str) -> bool:
@@ -86,6 +91,7 @@ _ENV_MAP = {
     "DICTATE_CONDITION_ON_PREVIOUS_TEXT": ("condition_on_previous_text", _env_bool),
     "DICTATE_HOTWORDS": ("hotwords", str),
     "DICTATE_HOTWORDS_FILE": ("hotwords_file", str),
+    "DICTATE_TAILS_FILE": ("hallucination_tails_file", str),
     "DICTATE_DUCK_VOLUME_PCT": ("duck_volume_pct", int),
     "DICTATE_DUCK_RAMP_MS": ("duck_ramp_ms", int),
 }

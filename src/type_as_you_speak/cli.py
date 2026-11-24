@@ -403,6 +403,18 @@ def _status_dict() -> dict:
 
 def cmd_start(_args) -> int:
     _prepare_env()
+    running, running_pid = _is_running()
+    if running:
+        # Single-instance: a second engine would listen to the same mic and
+        # both would type into the focused window — everything typed twice.
+        # (Observed: two sessions interleaved in live.log, phrases stamped
+        # 2-3x each.) The correct action is 'tays stop' or 'tays toggle'.
+        if getattr(_args, "json", False):
+            print(json.dumps(_status_dict()))
+        else:
+            print(f"type-as-you-speak: already running (pid {running_pid}) "
+                  f"— use 'tays stop' first")
+        return 0
     if getattr(_args, "model", None):
         # Per-run model override. Must be set BEFORE the engine is imported —
         # the engine reads its config (and DICTATE_MODEL) at import time.
