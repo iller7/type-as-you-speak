@@ -1,6 +1,6 @@
 # type-as-you-speak
 
-[![CI](https://github.com/iller7/type-as-you-speak/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/iller7/type-as-you-speak/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/iller7/type-as-you-speak)](https://github.com/iller7/type-as-you-speak/releases/latest) [![License](https://img.shields.io/github/license/iller7/type-as-you-speak)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/iller7/type-as-you-speak/total)](https://github.com/iller7/type-as-you-speak/releases) ![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.14-blue) ![Platform](https://img.shields.io/badge/platform-Linux-blue)
+[![CI](https://github.com/iller7/type-as-you-speak/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/iller7/type-as-you-speak/actions/workflows/ci.yml) [![Release](https://img.shields.io/github/v/release/iller7/type-as-you-speak)](https://github.com/iller7/type-as-you-speak/releases/latest) [![License](https://img.shields.io/github/license/iller7/type-as-you-speak)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/iller7/type-as-you-speak/total)](https://github.com/iller7/type-as-you-speak/releases) [![Python](https://img.shields.io/badge/Python-3.11%E2%80%933.15-blue)](docs/testing.md) ![Platform](https://img.shields.io/badge/platform-Linux-blue)
 
 Local dictation for Linux. Press a shortcut, speak, and type into the focused window as speech is recognised. The app uses faster-whisper for recognition and ydotool for input, with a clipboard fallback.
 
@@ -24,7 +24,7 @@ Bind `tays toggle` to a spare key. Press it to start dictation and press it agai
 
 [Documentation website](https://iller7.github.io/type-as-you-speak/) · [Installation](docs/install.md) · [Usage](docs/usage.md) · [Troubleshooting](docs/troubleshooting.md)
 
-Linux is the current target. Native-package CI and real-desktop verification have different scopes; see the [distribution guide](packaging/README.md). Flatpak is experimental, and macOS/Windows desktop ports remain open.
+Linux is the current target. Fedora 45 has a native-RPM Python 3.15 profile; ordinary PyPI-only installs use Python 3.11–3.14. Native-package CI and real-desktop verification have different scopes; see the [distribution guide](packaging/README.md). Flatpak is experimental, and macOS/Windows desktop ports remain open.
 
 [GitHub Issues](https://github.com/iller7/type-as-you-speak/issues) owns tasks and status; [TODO.md](TODO.md) is the concise roadmap. [GitHub Releases](https://github.com/iller7/type-as-you-speak/releases) contains downloads and the automatic changelog.
 
