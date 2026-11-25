@@ -50,7 +50,12 @@ def main(argv=None) -> int:
     parser.add_argument(
         "directory", type=Path, help="installed site-packages directory"
     )
-    parser.add_argument("--output", type=Path, help="pip-audit JSON report")
+    parser.add_argument("--output", type=Path, help="pip-audit report path")
+    parser.add_argument(
+        "--format",
+        choices=("json", "cyclonedx-json"),
+        help="Report format (JSON when --output is set)",
+    )
     parser.add_argument(
         "--system-package",
         action="append",
@@ -77,8 +82,10 @@ def main(argv=None) -> int:
             "-r",
             str(path),
         ]
+        if args.format or args.output:
+            command += ["--format", args.format or "json"]
         if args.output:
-            command += ["--format", "json", "--output", str(args.output)]
+            command += ["--output", str(args.output)]
         return subprocess.run(command, check=False).returncode
 
 

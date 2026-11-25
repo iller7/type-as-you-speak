@@ -141,3 +141,25 @@ def test_cli_audits_native_provider_and_keeps_scanner_failure(tmp_path, monkeypa
 
     monkeypatch.setattr(audit.subprocess, "run", scan)
     assert audit.main([str(tmp_path), "--system-package", "onnxruntime"]) == 2
+
+
+@pytest.mark.parametrize("report_format", ["json", "cyclonedx-json"])
+def test_report_format_preserves_exact_inventory_and_audit_failure(
+    tmp_path, monkeypatch, report_format
+):
+    audit = load_audit()
+    distribution(tmp_path, "numpy", "2.5.5")
+    report = tmp_path / "report.json"
+
+    def scan(command, **kwargs):
+        assert command[command.index("--format") + 1] == report_format
+        assert command[command.index("--output") + 1] == str(report)
+        assert {"--strict", "--no-deps", "--disable-pip"} <= set(command)
+        assert Path(command[command.index("-r") + 1]).read_text() == "numpy==2.5.5\n"
+        return subprocess.CompletedProcess(command, 1)
+
+    monkeypatch.setattr(audit.subprocess, "run", scan)
+    assert (
+        audit.main([str(tmp_path), "--format", report_format, "--output", str(report)])
+        == 1
+    )

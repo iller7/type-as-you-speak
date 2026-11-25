@@ -36,7 +36,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: package-${{ matrix.distro }}
-          path: dist/packages/${{ matrix.distro }}/*.deb
+          path: |
+            dist/packages/${{ matrix.distro }}/*.deb
+            dist/packages/${{ matrix.distro }}/*.cdx.json
+          compression-level: 0
           if-no-files-found: error
           retention-days: 1
 
@@ -73,7 +76,10 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: package-${{ matrix.distro }}
-          path: dist/packages/${{ matrix.distro }}/*.rpm
+          path: |
+            dist/packages/${{ matrix.distro }}/*.rpm
+            dist/packages/${{ matrix.distro }}/*.cdx.json
+          compression-level: 0
           if-no-files-found: error
           retention-days: 1
 

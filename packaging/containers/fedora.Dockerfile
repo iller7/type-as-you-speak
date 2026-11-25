@@ -40,9 +40,10 @@ RUN python scripts/prepare-test-model.py --output /tmp/recognition-model && \
     HF_HUB_OFFLINE=1 python -m pytest -m recognition tests/test_recognition.py -q -s \
       -o pythonpath=/installed-pydeps --recognition-installed-path /installed-pydeps --recognition-model /tmp/recognition-model && \
     rm -rf /tmp/recognition-model
-RUN . /build-profile.env && if [ "$TAYS_NATIVE_ONNX" = 1 ]; then \
-      python scripts/audit.py /installed-pydeps --system-package onnxruntime; \
-    else python scripts/audit.py /installed-pydeps; fi
-RUN mkdir /out && cp /root/rpmbuild/RPMS/*/*.rpm /root/rpmbuild/SRPMS/*.rpm /out/
+RUN mkdir /out && SBOM="/out/fedora$(rpm -E %fedora)-dependencies.cdx.json" && \
+    . /build-profile.env && if [ "$TAYS_NATIVE_ONNX" = 1 ]; then \
+      python scripts/audit.py /installed-pydeps --system-package onnxruntime --format cyclonedx-json --output "$SBOM"; \
+    else python scripts/audit.py /installed-pydeps --format cyclonedx-json --output "$SBOM"; fi
+RUN cp /root/rpmbuild/RPMS/*/*.rpm /root/rpmbuild/SRPMS/*.rpm /out/
 FROM scratch AS artifacts
 COPY --from=verify /out/ /

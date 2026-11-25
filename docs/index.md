@@ -11,7 +11,7 @@ body_class: home
   <div class="chips"><span>Linux desktop today</span><span>macOS &amp; Windows planned</span><span>Optional cloud planned</span></div>
 </div>
 
-<div class="notice">Install from the current source checkout. No supported binary release is published yet. <a href="{{ '/install.html' | relative_url }}">Check installation guidance.</a></div>
+<div class="notice">Linux packages are available in <a href="https://github.com/iller7/type-as-you-speak/releases/tag/v0.5.3">v0.5.3</a>. Desktop/GPU acceptance remains in progress; current source includes later changes. <a href="{{ '/install.html' | relative_url }}">Check installation guidance.</a></div>
 
 ## Less typing. More choice.
 
