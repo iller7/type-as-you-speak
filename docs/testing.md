@@ -18,6 +18,18 @@ The product target is Linux across distributions and desktops, plus Windows and 
 
 CI logs the actual host, interpreter and architecture. The macOS runner is one OS/image/architecture at a time; Windows Server CI is not a substitute for Windows desktop testing. CPU-hosted tests do not certify NVIDIA, AMD/ROCm or Apple acceleration. ARM64/native installer support needs explicit verification before advertising it.
 
+## CI validation scope
+
+| Change or event                                                                   | Validation                                                                                                                                        |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pull request containing only recognized static documentation                      | Quality/security lint, CI policy regressions and wheel/source metadata checks; no platform matrix, recognition downloads or native package builds |
+| Other pull requests, including runtime, dependency, packaging or workflow changes | Full quality, platform/recognition and native-package validation                                                                                  |
+| Master pushes, manual/scheduled CI and release workflows                          | Full validation                                                                                                                                   |
+
+The [selection policy](https://github.com/iller7/type-as-you-speak/blob/master/scripts/ci-policy.py) checks the actual PR merge against the event's base/head commits and considers both sides of a rename. Unknown paths, executable files, symlinks or ambiguous metadata select full validation. Failed selection, failed/cancelled jobs and unexpected skips cannot satisfy the required `passed` gate. Release checks default to full validation when called without selection inputs.
+
+CodeQL retains its separate PR, master and weekly triggers. The optimization changes which application/package checks a documentation PR needs; it does not change supported platforms or their full test coverage for runtime changes.
+
 ## Desktop acceptance matrix
 
 | Platform target  | Coverage to establish before claiming support                                                                                                                                         |
