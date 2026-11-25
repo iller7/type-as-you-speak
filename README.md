@@ -4,7 +4,7 @@
 
 Real-time dictation with privacy built in. Speak into the app you are using: text is typed into its focused input field, subject to desktop permissions and application compatibility. Strict offline dictation is enabled by default.
 
-Install from the current source checkout. No supported binary release is published yet.
+Linux packages and Python distributions are available in [v0.5.3](https://github.com/iller7/type-as-you-speak/releases/tag/v0.5.3). Desktop/GPU acceptance remains in progress; the current source checkout includes later, unreleased changes.
 
 Linux desktop integration is available today. macOS, Windows and an optional cloud service are planned; they are not current desktop/service features.
 

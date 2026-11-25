@@ -18,6 +18,7 @@ RUN bash packaging/deb/build-deb.sh
 FROM ${BASE_IMAGE} AS smoke
 ENV DEBIAN_FRONTEND=noninteractive QT_QPA_PLATFORM=offscreen
 COPY --from=build /work/dist/*.deb /packages/
+COPY --from=build /work/dist/*.cdx.json /packages/
 RUN apt-get update && apt-get install -y --no-install-recommends /packages/*.deb && \
     tays --version && tays --help && \
     PY="$(sed -n '1s/^#!//p' /usr/bin/tays)" && "$PY" -c 'import sys; sys.path.insert(0,"/opt/type-as-you-speak/pydeps"); import numpy, onnxruntime, faster_whisper; from PySide6.QtWidgets import QApplication; app=QApplication([])'

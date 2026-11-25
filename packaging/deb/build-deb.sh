@@ -24,7 +24,8 @@ wheels=("$WHEELHOUSE"/type_as_you_speak-*.whl)
 [ "${#wheels[@]}" -eq 1 ] || { echo 'Expected exactly one application wheel' >&2; exit 1; }
 "$PY" -m pip install --no-compile --no-index --no-deps --target "$STAGE/$PYDEPS" "${wheels[0]}"
 rm -rf "${STAGE:?}/${PYDEPS:?}/bin"
-"$PY" scripts/audit.py "$STAGE/$PYDEPS" --output "$STAGE/usr/share/doc/type-as-you-speak/dependency-audit.json"
+"$PY" scripts/audit.py "$STAGE/$PYDEPS" --format cyclonedx-json \
+  --output "$STAGE/usr/share/doc/type-as-you-speak/dependency-sbom.cdx.json"
 PYTHONPATH="$STAGE/$PYDEPS" "$PY" -c 'import numpy, onnxruntime, faster_whisper; from PySide6 import QtWidgets; from type_as_you_speak.cli import main; main(["--version"])'
 bash packaging/build-ydotool.sh "$STAGE"
 cat > "$STAGE/usr/bin/tays" <<EOF
@@ -51,4 +52,5 @@ INSTALLED_SIZE="$(du -sk "$STAGE" | cut -f1)"
 } > "$STAGE/DEBIAN/control"
 OUT="dist/type-as-you-speak_${VER}_${DISTRO}_${ARCH}.deb"
 dpkg-deb --build --root-owner-group "$STAGE" "$OUT"
+cp "$STAGE/usr/share/doc/type-as-you-speak/dependency-sbom.cdx.json" "dist/${DISTRO}-dependencies.cdx.json"
 echo "Built $OUT (requires Python $PYVER on $DISTRO)"

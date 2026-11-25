@@ -81,3 +81,17 @@ The verification stage checks clean RPM installation and offscreen Qt, then exec
 ### Strict offline runtime dependency
 
 The default strict-offline process guard requires `libseccomp2` in DEB builds/runtime and `libseccomp` in Fedora builds/runtime. It fails closed if unavailable. The Arch template declares `libseccomp`; downstream runtime validation remains required. Experimental Flatpak must also verify the library and filter availability inside its sandbox before publication; its GUI model-download capability does not establish strict engine protection.
+
+## Dependency SBOMs
+
+Each native build uses the existing exact-version advisory audit to emit a CycloneDX JSON dependency SBOM, without an extra resolver or duplicate audit. DEBs contain `/usr/share/doc/type-as-you-speak/dependency-sbom.cdx.json`; both DEB and RPM container outputs also include a distro-named `*-dependencies.cdx.json` sidecar. Fedora 45's report includes the declared native ONNX Python provider and its Python dependency closure. Vulnerabilities, missing distributions and scanner failures still fail the build.
+
+Tag/manual package artifacts retain these small reports alongside binaries with the existing one-day retention. Binary artifact uploads disable redundant ZIP compression. Future releases checksum and attest SBOM sidecars together with the other assets; existing immutable releases are unchanged.
+
+These reports inventory the audited third-party Python distributions. They do not establish a complete native-library/OS/model inventory, dependency compatibility, source availability or licence compliance. Continue the component/source/notices review in [#10](https://github.com/iller7/type-as-you-speak/issues/10) and broader security work in [#11](https://github.com/iller7/type-as-you-speak/issues/11). To generate one for an installed dependency directory manually:
+
+```sh
+uv run --locked python scripts/audit.py PATH_TO_SITE_PACKAGES --format cyclonedx-json --output dependencies.cdx.json
+```
+
+The audit queries public advisory metadata during the build; it is separate from offline dictation and does not access speech or model audio. The application itself does not acquire an SBOM/network dependency.

@@ -4,7 +4,7 @@ title: "Privacy and network access"
 
 # Privacy and network access
 
-These controls apply to the current source checkout. No supported binary release is published yet.
+This guide describes the current source checkout. [v0.5.3](https://github.com/iller7/type-as-you-speak/releases/tag/v0.5.3) is published with strict offline controls; later source changes may not be included in that release. Desktop/GPU acceptance remains in progress.
 
 ## Strict offline dictation
 

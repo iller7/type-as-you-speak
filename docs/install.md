@@ -4,7 +4,7 @@ title: "Installation"
 
 # Installation
 
-These controls apply to the current source checkout. No supported binary release is published yet.
+This guide describes the current source checkout. [v0.5.3](https://github.com/iller7/type-as-you-speak/releases/tag/v0.5.3) is published with strict offline controls; later source changes may not be included in that release. Desktop/GPU acceptance remains in progress.
 
 ## Requirements
 
@@ -45,9 +45,21 @@ python3 -m venv .venv && .venv/bin/pip install "git+https://github.com/iller7/ty
 
 This gets you the `tays` command. You still need the OS prerequisites above (especially **ydotool + its daemon**) — `pip` can't set those up, so prefer `install.sh` if you want it all handled.
 
-### Option C — ready-made `.deb` (CPU build)
+### Option C — ready-made Linux packages (CPU-validated)
 
-No supported binary release is published yet. Use a source installation above. Future verified packages will appear on the [Releases page](https://github.com/iller7/type-as-you-speak/releases); do not use removed legacy download URLs.
+[v0.5.3](https://github.com/iller7/type-as-you-speak/releases/tag/v0.5.3) provides distro-specific Debian 12/13, Ubuntu 24.04/26.04 and Fedora 44/45 packages, plus a wheel and source archive. Choose the asset matching your distro, version and x86-64 architecture. These packages passed clean-install/CPU checks; real desktop/GPU acceptance remains open. GitHub release downloads are separate from AUR/Copr/Flathub/PyPI publication.
+
+Download the selected package and `SHA256SUMS` from the same release. Verify its checksum before installing; the following commands use the Ubuntu 24.04 asset as an example:
+
+```sh
+gh release verify v0.5.3 --repo iller7/type-as-you-speak
+gh release download v0.5.3 --repo iller7/type-as-you-speak --pattern SHA256SUMS --pattern 'type-as-you-speak_0.5.3_ubuntu24.04_amd64.deb'
+sha256sum --check --ignore-missing SHA256SUMS
+gh attestation verify type-as-you-speak_0.5.3_ubuntu24.04_amd64.deb --repo iller7/type-as-you-speak --signer-workflow iller7/type-as-you-speak/.github/workflows/release.yml --source-ref refs/tags/v0.5.3 --deny-self-hosted-runners
+sudo apt install ./type-as-you-speak_0.5.3_ubuntu24.04_amd64.deb
+```
+
+For a matching Fedora RPM, verify the selected file the same way and install it with `sudo dnf install ./SELECTED_PACKAGE.rpm`. Run commands separately and stop on any verification failure. GitHub CLI verification requires a current `gh`; a checksum confirms matching bytes, while attestation verification also checks the producing repository/workflow. Neither replaces desktop compatibility testing.
 
 Package-channel builds are currently **validated for CPU inference**. Building without a GPU does not establish whether the installed backend can accelerate on a target machine; packaged GPU operation remains unverified. Source installs allow you to supply compatible GPU runtime libraries, but still need the [explicit hardware recognition check](testing.md#explicit-gpu-recognition).
 
