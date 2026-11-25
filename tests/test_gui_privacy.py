@@ -106,3 +106,11 @@ def test_settings_use_utf8_even_with_a_windows_style_default_encoding(
     settings.save()
     target.read_bytes().decode("utf-8")
     assert config.load_config()["strict_offline"] is False
+
+
+@pytest.mark.parametrize(
+    "phase,caption",
+    [(None, "Preparing"), ("preparing", "Preparing"), ("listening", "Listening")],
+)
+def test_status_caption_distinguishes_preparation(settings, phase, caption):
+    assert caption in settings._status_line({"running": True, "state": phase})

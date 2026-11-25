@@ -36,6 +36,7 @@ PlasmoidItem {
 
     // ----- state -------------------------------------------------------------
     property bool running: false
+    property string phase: "stopped"
     property bool busy: false            // a start/stop/settings command is in flight
     property bool statusOk: false        // the last status poll produced JSON
     property string detail: ""          // e.g. "medium.en on NVIDIA GeForce RTX 5090 (CUDA)"
@@ -165,6 +166,9 @@ PlasmoidItem {
             const was = root.running;
             root.statusOk = true;
             root.running = !!st["running"];
+            root.phase = root.running
+                ? (st["state"] === "listening" ? "listening" : "preparing")
+                : "stopped";
             root.detail = root.describe(st);
             if (was !== root.running) {
                 console.log("type-as-you-speak applet: " +
@@ -219,7 +223,9 @@ PlasmoidItem {
     toolTipMainText: i18n("type-as-you-speak")
     toolTipSubText: {
         if (root.running) {
-            return i18n("Listening — %1", root.detail);
+            return root.phase === "listening"
+                ? i18n("Listening — %1", root.detail)
+                : i18n("Preparing — %1", root.detail);
         }
         return root.statusOk
             ? i18n("Stopped — %1", root.detail)
@@ -264,7 +270,9 @@ PlasmoidItem {
                     color: root.running ? "#E2574C" : "#8A8A9C"
                 }
                 PlasmaComponents3.Label {
-                    text: root.running ? i18n("Listening") : i18n("Stopped")
+                    text: root.running
+                        ? (root.phase === "listening" ? i18n("Listening") : i18n("Preparing"))
+                        : i18n("Stopped")
                     font.bold: true
                     Layout.fillWidth: true
                 }

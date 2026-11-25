@@ -40,7 +40,13 @@ def session(monkeypatch, tmp_path):
     monkeypatch.setattr(engine, "_preload_nvidia", lambda: None)
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
     monkeypatch.setattr(engine, "WHISPER_HALLUCINATION_TAILS", ["thanks for watching"])
-    notified, typed, decoded = [], [], []
+    notified, typed, decoded, ready, phases = [], [], [], [], []
+    monkeypatch.setattr(
+        engine,
+        "notify_ready",
+        lambda: ready.append(engine.RUNTIME["state"]),
+        raising=False,
+    )
     monkeypatch.setattr(engine, "notify_done", lambda: notified.append(True))
     monkeypatch.setattr(
         engine, "make_type", lambda: (lambda t: typed.append(t) or True, lambda: None)
@@ -58,6 +64,7 @@ def session(monkeypatch, tmp_path):
         )
 
         def read_chunk(**kwargs):
+            phases.append(engine.RUNTIME.get("state"))
             clock.now += 1
             if stop:
                 engine._on_signal(None, None)
@@ -82,7 +89,14 @@ def session(monkeypatch, tmp_path):
         )
         return engine.run_session(reader, clock.now)
 
-    return SimpleNamespace(run=run, typed=typed, notified=notified, decoded=decoded)
+    return SimpleNamespace(
+        run=run,
+        typed=typed,
+        notified=notified,
+        decoded=decoded,
+        ready=ready,
+        phases=phases,
+    )
 
 
 def test_eof_flushes_pending_words(session):
@@ -190,3 +204,52 @@ def test_engine_failure_closes_reader_restores_audio_and_clears_state(
     with pytest.raises(type(failure), match=str(failure)):
         engine.main()
     assert cleaned == ["reader", "audio", "state"]
+
+
+def test_listening_requires_first_audio_and_is_announced_once(session):
+    session.run(chunks=[np.ones(16000, dtype=np.float32)] * 2)
+    assert session.phases == ["preparing", "listening", "listening"]
+    assert session.ready == ["listening"]
+
+
+def test_capture_eof_never_announces_listening(session):
+    assert session.run(chunks=[]) == 3
+    assert session.ready == []
+    assert engine.RUNTIME["state"] == "preparing"
+
+
+def test_stop_during_capture_does_not_announce_listening(session):
+    session.run(stop=True)
+    assert session.ready == []
+
+
+def test_stop_during_model_preparation_does_not_open_capture(monkeypatch):
+    monkeypatch.setattr(engine, "CFG", {**engine.CFG, "strict_offline": True})
+    monkeypatch.setattr(engine, "_stop", {"flag": False})
+    monkeypatch.setattr(engine._offline, "enforce", lambda: None)
+    monkeypatch.setattr(engine.signal, "signal", lambda *a: None)
+    monkeypatch.setattr(engine, "_preload_nvidia", lambda: None)
+    monkeypatch.setattr(engine, "_clear_live_state", lambda: None)
+    monkeypatch.setattr(engine, "_write_live_state", lambda: None)
+    monkeypatch.setattr(engine, "build_model", lambda: engine._on_signal(None, None))
+    monkeypatch.setattr(engine, "get_vad", lambda: None)
+    monkeypatch.setattr(
+        engine, "AudioReader", lambda: pytest.fail("capture after stop")
+    )
+    assert engine.main() == 3
+
+
+def test_empty_audio_chunks_do_not_announce_listening(session):
+    assert session.run(chunks=[np.array([], dtype=np.float32)]) == 3
+    assert session.ready == []
+
+
+def test_stop_during_typing_setup_never_announces_listening(session, monkeypatch):
+    def stop_before_capture():
+        engine._on_signal(None, None)
+        return lambda _: True, lambda: None
+
+    monkeypatch.setattr(engine, "make_type", stop_before_capture)
+    assert session.run() == 3
+    assert session.ready == []
+    assert session.phases == []
