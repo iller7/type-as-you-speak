@@ -977,7 +977,10 @@ class SettingsWindow(QMainWindow):
                 on = f"{cpu} (CPU)" if cpu else self.tr("CPU (int8)")
             else:
                 on = dev.upper()
-            line = self.tr("● Listening — {m} on {d} (pid {p})").format(
+            caption = (self.tr("● Listening — {m} on {d} (pid {p})")
+                       if st.get("state") == "listening"
+                       else self.tr("● Preparing — {m} on {d} (pid {p})"))
+            line = caption.format(
                 m=model, d=on, p=st.get("pid"))
             # The running session keeps the device it STARTED with; a config
             # change applies to the next session. Say so, or the panel and

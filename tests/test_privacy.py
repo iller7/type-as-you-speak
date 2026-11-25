@@ -48,6 +48,7 @@ def test_session_diagnostics_do_not_include_transcripts(monkeypatch, capsys):
         lambda: (lambda text: typed.append(text) or True, lambda: None),
     )
     monkeypatch.setattr(engine, "notify_done", lambda: None)
+    monkeypatch.setattr(engine, "notify_ready", lambda: None)
     monkeypatch.setattr(engine, "_stop", {"flag": False})
     assert engine.run_session(reader, engine.time.time()) == 0
     assert secret in " ".join(typed)

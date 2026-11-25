@@ -76,6 +76,7 @@ def recognized(cpu_model, monkeypatch, tmp_path, pytestconfig):
         lambda audio, **kw: original(audio, beam_size=5, temperature=0, **kw),
     )
     monkeypatch.setattr(engine, "notify_done", lambda: None)
+    monkeypatch.setattr(engine, "notify_ready", lambda: None)
     settings = dict(
         SR=16000,
         CHUNK_S=0.3,

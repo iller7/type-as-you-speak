@@ -395,7 +395,7 @@ def _read_live_state(pid: int | None) -> dict | None:
     writes it; only trusted when its pid matches the live one."""
     try:
         st = json.loads((_state_dir() / "live.json").read_text())
-        if st.get("pid") == pid:
+        if isinstance(st, dict) and type(st.get("pid")) is int and st["pid"] == pid:
             return st
     except (OSError, ValueError):
         pass
@@ -412,7 +412,7 @@ def _status_dict() -> dict:
         "version": __version__,
         "running": running,
         "pid": pid if running else None,
-        "state": "listening" if running else "stopped",
+        "state": "preparing" if running else "stopped",
         "model": cfg["model_name"],
         "device": cfg["device"],
         "strict_offline": None if running else cfg["strict_offline"],
@@ -421,6 +421,8 @@ def _status_dict() -> dict:
     if running:
         live = _read_live_state(pid)
         if live:
+            if live.get("state") == "listening":
+                st["state"] = "listening"
             st["strict_offline"] = live.get("strict_offline")
             st["network_guard"] = live.get("network_guard")
             if live.get("model"):
@@ -526,6 +528,8 @@ def cmd_toggle(_args) -> int:
     except OSError as e:
         print(f"type-as-you-speak: cannot open log: {e}", file=sys.stderr)
         return 1
+    if not getattr(_args, "json", False):
+        _notify("Preparing dictation…", "Wait for the Listening notification before speaking.")
     try:
         child = subprocess.Popen(
             [sys.executable, "-m", "type_as_you_speak", "start"],
@@ -552,9 +556,8 @@ def cmd_toggle(_args) -> int:
     if getattr(_args, "json", False):
         print(json.dumps(_status_dict()))
         return 0
-    _notify("Listening…",
-            "Speak now — it types as you talk; press the key again to stop.")
-    print("Listening… speak now — it types as you talk. Press the key again to stop.")
+    print("Dictation session launched. Wait for the Listening notification before speaking. "
+          "Press the key again to stop.")
     return 0
 
 

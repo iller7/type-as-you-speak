@@ -624,6 +624,12 @@ def unmute_out():
         pass
 
 
+def notify_ready():
+    from .cli import _notify
+
+    _notify("Listening…", "Speak now — it types as you talk; press the key again to stop.")
+
+
 def notify_done():
     try:
         subprocess.run(["notify-send", "-a", "type-as-you-speak",
@@ -642,7 +648,7 @@ def main():
         except RuntimeError as error:
             _log(str(error))
             return 2
-    RUNTIME.update(strict_offline=bool(CFG.get("strict_offline", True)), network_guard=_offline.active())
+    RUNTIME.update(state="preparing", strict_offline=bool(CFG.get("strict_offline", True)), network_guard=_offline.active())
     signal.signal(signal.SIGTERM, _on_signal)
     signal.signal(signal.SIGINT, _on_signal)
 
@@ -655,6 +661,8 @@ def main():
         except RuntimeError as error:
             _log(str(error))
             return 2
+    if _stop["flag"]:
+        return 3
     reader = AudioReader()
     _log(f"audio source: {os.environ.get('DICTATE_WAV', 'mic')}")
     exit_code = 3
@@ -668,6 +676,8 @@ def main():
 
 
 def run_session(reader, t0, prepared=None):
+    RUNTIME["state"] = "preparing"
+    _write_live_state()
 
     if prepared is None:
         _preload_nvidia()
@@ -686,7 +696,6 @@ def run_session(reader, t0, prepared=None):
 
     warmup()
     type_text, type_space = make_type()
-    _log(f"ready in {time.time() - t0:.2f}s — speak now")
 
     # ---- streaming state ----------------------------------------------------
     # pending: audio heard but not yet committed; re-transcribed each round.
@@ -961,6 +970,13 @@ def run_session(reader, t0, prepared=None):
             _log(f"audio source ended: drain={getattr(reader, '_drain_exit', '?')}, "
                  f"buf={len(reader._buf)}b, thread_alive={reader._thread.is_alive()}")
             break
+        if chunk.size == 0:
+            continue
+        if not _stop["flag"] and RUNTIME["state"] != "listening":
+            RUNTIME["state"] = "listening"
+            _write_live_state()
+            _log(f"ready in {time.time() - t0:.2f}s — speak now")
+            notify_ready()
         now = time.time()
         # Test mode: DICTATE_WAV + DICTATE_REALTIME=1 paces file playback
         # like a live mic, so the round/commit logic behaves realistically.
