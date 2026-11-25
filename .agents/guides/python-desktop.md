@@ -37,7 +37,7 @@ Use four spaces for Python. Prefer clear functions and names, explicit lifecycle
 
 ## Tests and local models
 
-Use synthetic arrays and stubs for fast unit tests. Add a small set of licensed WAV fixtures and expected transcripts for real recognition tests under T002; larger datasets and GPU runs belong in separate jobs. Include silence and failure cases, and ensure dry runs cannot inject input.
+Use synthetic arrays and stubs for fast unit tests. Add a small set of licensed WAV fixtures and expected transcripts for real recognition tests under [#5](https://github.com/iller7/type-as-you-speak/issues/5); larger datasets and GPU runs belong in separate jobs. Include silence and failure cases, and ensure dry runs cannot inject input.
 
 Use a local TTS generator such as eSpeak NG when generating fixtures, or review the licence of recorded samples before adding them. The legacy gTTS extra uses an online service, so it must not become a requirement for the local-only workflow or offline tests. Record fixture provenance, model version/revision, configuration and expected thresholds.
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Shared integrity and accuracy checks for the public recognition fixture."""
+"""Shared integrity, backend and accuracy checks for public recognition tests."""
 
 import hashlib
 import json
@@ -55,3 +55,15 @@ def error_rates(reference, hypothesis):
         edit_distance(words, result) / len(words),
         edit_distance(characters, " ".join(result)) / len(characters),
     )
+
+
+def verified_backend(model, requested_device):
+    device = model.model.device
+    compute_type = model.model.compute_type
+    expected = {"cpu": {"int8", "int8_float32"}, "cuda": {"float16"}}
+    if device != requested_device or compute_type not in expected[requested_device]:
+        raise ValueError(
+            f"Requested {requested_device} recognition but loaded "
+            f"{device}/{compute_type}; hardware validation forbids fallback"
+        )
+    return {"device": device, "compute_type": compute_type}

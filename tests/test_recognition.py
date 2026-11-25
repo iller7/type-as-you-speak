@@ -1,9 +1,11 @@
-"""Opt-in real CPU recognition; never download models or inject desktop input."""
+"""Opt-in real CPU/GPU recognition; never download models or inject desktop input."""
 
+import importlib.metadata
 import importlib.util
 import json
 import os
 from pathlib import Path
+import platform
 import socket
 import time
 from types import SimpleNamespace
@@ -25,8 +27,9 @@ def support():
 
 
 @pytest.fixture(scope="module")
-def cpu_model(pytestconfig):
+def recognition_model(pytestconfig):
     tools = support()
+    device = pytestconfig.getoption("--recognition-device")
     directory = pytestconfig.getoption("--recognition-model") or os.environ.get(
         "TAYS_TEST_MODEL_DIR"
     )
@@ -44,18 +47,37 @@ def cpu_model(pytestconfig):
         from type_as_you_speak import engine
 
         offline.setattr(engine, "CFG", {**engine.CFG, "strict_offline": True})
-        yield engine._load_model(
+        if device == "cuda":
+            engine._preload_nvidia()
+        model = engine._load_model(
             directory,
-            device="cpu",
-            compute_type="int8",
+            device=device,
+            compute_type="int8" if device == "cpu" else "float16",
             cpu_threads=2,
         )
+        backend = tools.verified_backend(model, device)
+        print(
+            json.dumps(
+                {
+                    "recognition_backend": backend,
+                    "requested_device": device,
+                    "platform": platform.system(),
+                    "architecture": platform.machine(),
+                    "python": platform.python_version(),
+                    "ctranslate2": importlib.metadata.version("ctranslate2"),
+                    "faster_whisper": importlib.metadata.version("faster-whisper"),
+                    "model_revision": tools.manifest()["model"]["revision"],
+                }
+            )
+        )
+        yield model
 
 
 @pytest.fixture
-def recognized(cpu_model, monkeypatch, tmp_path, pytestconfig):
+def recognized(recognition_model, monkeypatch, tmp_path, pytestconfig):
     from type_as_you_speak import engine
 
+    device = pytestconfig.getoption("--recognition-device")
     installed = pytestconfig.getoption("--recognition-installed-path")
     if installed:
         assert Path(engine.__file__).resolve().is_relative_to(Path(installed).resolve())
@@ -68,13 +90,18 @@ def recognized(cpu_model, monkeypatch, tmp_path, pytestconfig):
     monkeypatch.setattr(engine.subprocess, "run", blocked)
     monkeypatch.setattr(engine.subprocess, "Popen", blocked)
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
-    monkeypatch.setattr(engine, "build_model", lambda: cpu_model)
-    original = cpu_model.transcribe
+    monkeypatch.setattr(engine, "build_model", lambda: recognition_model)
+    original = recognition_model.transcribe
     monkeypatch.setattr(
-        cpu_model,
+        recognition_model,
         "transcribe",
         lambda audio, **kw: original(audio, beam_size=5, temperature=0, **kw),
     )
+
+    def no_fallback(*args, **kwargs):
+        pytest.fail("Explicit hardware recognition must not load a fallback model")
+
+    monkeypatch.setattr(engine, "_load_model", no_fallback)
     monkeypatch.setattr(engine, "notify_done", lambda: None)
     monkeypatch.setattr(engine, "notify_ready", lambda: None)
     settings = dict(
@@ -92,7 +119,7 @@ def recognized(cpu_model, monkeypatch, tmp_path, pytestconfig):
         NO_REPEAT_NGRAM_SIZE=2,
         CONDITION_ON_PREVIOUS_TEXT=False,
         _stop={"flag": False},
-        RUNTIME={"model": "tiny.en", "device": "cpu"},
+        RUNTIME={"model": "tiny.en", "device": device},
     )
     for name, value in settings.items():
         monkeypatch.setattr(engine, name, value)
@@ -119,7 +146,12 @@ def recognized(cpu_model, monkeypatch, tmp_path, pytestconfig):
         )
         start = time.perf_counter()
         status = engine.run_session(reader, time.time())
-        return status, "".join(typed), time.perf_counter() - start
+        elapsed = time.perf_counter() - start
+        support().verified_backend(recognition_model, device)
+        assert engine.RUNTIME["device"] == device, (
+            "Session changed the requested device"
+        )
+        return status, "".join(typed), elapsed
 
     return run
 
