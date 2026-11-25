@@ -200,3 +200,64 @@ def test_inference_fails_closed_when_runtime_opt_out_fails(monkeypatch, boundary
     )
     with pytest.raises(RuntimeError, match="telemetry opt-out unavailable"):
         getattr(engine, boundary)()
+
+
+@pytest.mark.parametrize(
+    "loader,inline", [("load_hotwords", "safe"), ("load_tail_lines", ["safe"])]
+)
+def test_unreadable_phrase_files_do_not_log_private_paths(
+    loader, inline, tmp_path, capsys
+):
+    secret_path = tmp_path / "private-customer-phrase-list"
+    getattr(engine, loader)(inline, str(secret_path))
+    output = capsys.readouterr().err
+    assert "unreadable" in output
+    assert "FileNotFoundError" in output
+    assert str(secret_path) not in output
+
+
+def test_gpu_load_failure_does_not_log_exception_payload(monkeypatch, capsys):
+    monkeypatch.setattr(engine, "CFG", {**engine.CFG, "device": "cuda"})
+    monkeypatch.setattr(engine, "_detect_gpu_name", lambda: None)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("private access-token and customer phrase")
+
+    monkeypatch.setattr(engine, "_load_model", fail)
+    with pytest.raises(RuntimeError, match="device=cuda"):
+        engine.build_model()
+    output = capsys.readouterr().err
+    assert "RuntimeError" in output
+    assert "private access-token" not in output
+    assert "customer phrase" not in output
+
+
+def test_live_metadata_is_atomic_and_private(monkeypatch, tmp_path):
+    import json
+
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    monkeypatch.setattr(engine, "RUNTIME", {"state": "preparing"})
+    target = engine._live_state_file()
+    target.parent.mkdir(mode=0o755)
+    target.write_text('{"state":"old"}')
+    target.chmod(0o644)
+    engine._write_live_state()
+    assert json.loads(target.read_text())["state"] == "preparing"
+    if os.name != "nt":
+        assert target.stat().st_mode & 0o777 == 0o600
+        assert target.parent.stat().st_mode & 0o777 == 0o700
+
+
+def test_failed_live_metadata_replace_preserves_previous_state(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+    target = engine._live_state_file()
+    target.parent.mkdir()
+    target.write_text('{"state":"old"}')
+
+    def fail_replace(*args, **kwargs):
+        raise OSError("disk failure")
+
+    monkeypatch.setattr(engine.os, "replace", fail_replace)
+    engine._write_live_state()
+    assert target.read_text() == '{"state":"old"}'
+    assert list(target.parent.iterdir()) == [target]

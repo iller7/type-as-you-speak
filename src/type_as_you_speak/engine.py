@@ -8,6 +8,7 @@ Strict-offline enforcement and model preparation complete before microphone capt
 Set DICTATE_WAV=/path/to.wav to exercise the same chunk, VAD, flush and stop logic using a recording instead of a microphone.
 """
 import ctypes
+import tempfile
 import numpy as np
 import os
 import re
@@ -47,14 +48,27 @@ def _live_state_file() -> Path:
 
 def _write_live_state() -> None:
     import json
+
+    temporary = None
     try:
         p = _live_state_file()
-        p.parent.mkdir(parents=True, exist_ok=True)
-        st = {"pid": os.getpid()}
-        st.update(RUNTIME)
-        p.write_text(json.dumps(st))
-    except Exception:
+        p.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        p.parent.chmod(0o700)
+        state = {**RUNTIME, "pid": os.getpid()}
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=p.parent, prefix=".live-", delete=False
+        ) as stream:
+            temporary = Path(stream.name)
+            json.dump(state, stream)
+        os.replace(temporary, p)
+    except (OSError, TypeError, ValueError):
         pass
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def _clear_live_state() -> None:
@@ -97,7 +111,7 @@ def load_tail_lines(inline_list, path):
                     if e:
                         entries.append(e)
         except OSError as e:
-            _log(f"hallucination-tails file {p!r} unreadable ({e}) — inline list only")
+            _log(f"hallucination-tails file unreadable ({type(e).__name__}) — inline list only")
     seen, out = set(), []
     for e in entries:
         k = e.casefold()
@@ -123,7 +137,7 @@ def load_hotwords(inline, path):
                     if e:
                         entries.append(e)
         except OSError as e:
-            _log(f"hotwords file {p!r} unreadable ({e}) — inline list only")
+            _log(f"hotwords file unreadable ({type(e).__name__}) — inline list only")
     seen, out = set(), []
     for e in entries:
         k = e.casefold()
@@ -431,7 +445,7 @@ def build_model():
             RUNTIME.update(model=cand, device=gpu_label)
             return m
         except Exception as e:
-            _log(f"{gpu_label} {cand} unavailable ({e!r})")
+            _log(f"{gpu_label} {cand} unavailable ({type(e).__name__})")
 
     # No GPU model loaded.
     if device == "cuda":
