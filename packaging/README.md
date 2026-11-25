@@ -95,3 +95,7 @@ uv run --locked python scripts/audit.py PATH_TO_SITE_PACKAGES --format cyclonedx
 ```
 
 The audit queries public advisory metadata during the build; it is separate from offline dictation and does not access speech or model audio. The application itself does not acquire an SBOM/network dependency.
+
+## Retrying draft publication
+
+A failed asset upload can leave a partial draft. Re-running the release publish job can resume it: the helper requires an existing stable tag and a draft, rejects remote assets outside the supplied local inventory, then replaces matching draft assets and publishes only after upload succeeds. Empty local inventories fail before any GitHub operation. Published or unknown releases are never resumed; existing immutable release assets remain untouched. Keep the verified local artifacts from the same release build when retrying. End-to-end failure/retry publication still needs an explicitly approved future release rehearsal under [#9](https://github.com/iller7/type-as-you-speak/issues/9).
