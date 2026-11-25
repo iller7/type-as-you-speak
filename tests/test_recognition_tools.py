@@ -65,3 +65,33 @@ def test_public_wav_fixture_has_verified_bytes_and_expected_pcm_format():
             source.getframerate(),
         ) == (1, 2, 16000)
         assert source.getnframes() > 16000
+
+
+@pytest.mark.parametrize(
+    "requested,actual,compute",
+    [
+        ("cuda", "cpu", "int8_float32"),
+        ("cpu", "cuda", "float16"),
+        ("cuda", "cuda", "float32"),
+        ("cpu", "cpu", "float32"),
+    ],
+)
+def test_explicit_hardware_validation_rejects_fallback(requested, actual, compute):
+    from types import SimpleNamespace
+
+    model = SimpleNamespace(model=SimpleNamespace(device=actual, compute_type=compute))
+    with pytest.raises(ValueError, match="Requested"):
+        tools().verified_backend(model, requested)
+
+
+@pytest.mark.parametrize(
+    "device,compute", [("cpu", "int8_float32"), ("cuda", "float16")]
+)
+def test_explicit_hardware_validation_reports_loaded_backend(device, compute):
+    from types import SimpleNamespace
+
+    model = SimpleNamespace(model=SimpleNamespace(device=device, compute_type=compute))
+    assert tools().verified_backend(model, device) == {
+        "device": device,
+        "compute_type": compute,
+    }

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Explicitly download and verify the pinned public CPU recognition-test model."""
+"""Explicitly download and verify the pinned public recognition-test model."""
 
 import argparse
 import os
@@ -38,7 +38,7 @@ def main():
             force_download=(args.output / name).exists(),
         )
     verify_files(args.output, model["files"])
-    print(f"Verified CPU test model {model['repo_id']} at {model['revision']}")
+    print(f"Verified test model {model['repo_id']} at {model['revision']}")
 
 
 if __name__ == "__main__":

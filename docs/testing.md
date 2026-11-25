@@ -73,6 +73,27 @@ The [fixture provenance and thresholds](https://github.com/iller7/type-as-you-sp
 
 This first integration baseline deliberately flushes the full pending recording at EOF. Live streaming cadence, long speech, diverse speakers/accents, real background noise, GPU inference and OS-level network isolation remain open. The Python network guard is not a substitute for an OS firewall or a complete privacy audit. A discovered faster-whisper/PyAV file-helper incompatibility is tracked separately in [#42](https://github.com/iller7/type-as-you-speak/issues/42); the app and these PCM tests use float32 arrays rather than that helper.
 
+## Explicit GPU recognition
+
+Hardware validation uses the same hash-verified recording, noisy derivative, silence case and accuracy thresholds as the CPU baseline. Run it manually on a Linux machine with a supported GPU and a compatible installed backend; standard hosted CI continues to run CPU tests. This does not require a GitHub self-hosted runner or expose a personal machine to public PR jobs.
+
+Prepare the public model once, then select the GPU explicitly:
+
+```sh
+uv run --locked python scripts/prepare-test-model.py --output PATH_TO_MODEL_DIRECTORY
+uv run --locked pytest -m recognition tests/test_recognition.py --recognition-model PATH_TO_MODEL_DIRECTORY --recognition-device cuda -q -s
+```
+
+The test requests float16 inference and checks the loaded CTranslate2 model's actual device and compute type before recognition. Unsupported hardware, missing GPU libraries, a CPU/precision fallback or any attempt to load a session fallback model fails the run; none is treated as a skip or a GPU pass. Without `--recognition-device cuda`, the existing default remains CPU int8. An int8 CPU model may report its resolved type as `int8_float32`.
+
+For NVIDIA, check the [faster-whisper GPU prerequisites](https://github.com/SYSTRAN/faster-whisper#gpu) and the [pinned CTranslate2 4.9.1 hardware guidance](https://github.com/OpenNMT/CTranslate2/blob/v4.9.1/docs/hardware_support.md). A detected graphics card or a successful `nvidia-smi` command alone does not prove inference works. No GPU drivers, alternate wheels or system libraries are installed by the recognition command.
+
+AMD acceleration remains experimental and unverified for this app. It requires a separate ROCm-enabled CTranslate2 build; the normal PyPI CUDA/CPU wheel does not establish AMD support. Upstream exposes both NVIDIA CUDA and AMD HIP through `device="cuda"`, so the reported device string cannot identify the GPU vendor. Validate the origin/version of any alternate build separately, and record the actual hardware alongside results; do not treat an ordinary locked-environment CPU pass as ROCm evidence. See [upstream backend support](https://github.com/OpenNMT/CTranslate2/blob/v4.9.1/docs/hardware_support.md). Apple GPU acceleration is outside this app's current device selection; Apple Silicon CI is a CPU baseline.
+
+The JSON output records the actual backend/precision, OS family, architecture, Python and inference-library versions, pinned model revision, WER/CER and elapsed inference time. It contains no hostname, GPU serial number, personal audio or dictated transcript. For [#8](https://github.com/iller7/type-as-you-speak/issues/8), attach these public-fixture metrics with the tested commit, distro/version, GPU model, driver/runtime versions, backend package origin and installation channel. Record failures too. NVIDIA, AMD and packaged GPU results remain pending until run on their respective hardware; no hardware validation is inferred from unit tests.
+
+This recognition harness controls capture/input/notification boundaries and blocks Python network connections. It does not certify microphone capture, desktop input, strict Linux kernel enforcement on GPU drivers, GPU out-of-memory recovery or concurrent GPU workloads. Those require separate target-hardware runs under #7/#8/#45. Do not add a strict GPU speed threshold from a CPU-only baseline.
+
 ## Fedora 45 and Python 3.15
 
 The Fedora matrix retains Fedora 44 and adds Fedora 45. Fedora 45 uses its system Python 3.15 and `python3-onnxruntime` RPM rather than a nonexistent cp315 PyPI wheel. The ONNX Runtime API floor is 1.26; ordinary wheel bundles remain locked to 1.32. A Fedora build records its native ONNX provider NEVRA, validates the combined environment, and audits the actual provider plus its installed Python dependency closure. It rejects a bundled ONNX copy shadowing the declared native provider.

@@ -49,7 +49,7 @@ This gets you the `tays` command. You still need the OS prerequisites above (esp
 
 No supported binary release is published yet. Use a source installation above. Future verified packages will appear on the [Releases page](https://github.com/iller7/type-as-you-speak/releases); do not use removed legacy download URLs.
 
-All package-channel builds are **CPU builds** (no GPU in a sandbox) — the right choice if you don't need GPU acceleration. The power-user route (Options A/B) is the one that adds the CUDA build.
+Package-channel builds are currently **validated for CPU inference**. Building without a GPU does not establish whether the installed backend can accelerate on a target machine; packaged GPU operation remains unverified. Source installs allow you to supply compatible GPU runtime libraries, but still need the [explicit hardware recognition check](testing.md#explicit-gpu-recognition).
 
 Other channels have recipes in the repository. Submission/publication status needs confirmation under [#15](https://github.com/iller7/type-as-you-speak/issues/15); a recipe alone is not proof that a channel is published:
 
