@@ -12,23 +12,46 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.head_ref || github.ref_name }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      full: ${{ steps.select.outputs.full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: select
+        run: python3 scripts/ci-policy.py select
+
   checks:
+    needs: changes
+    with:
+      full_tests: ${{ needs.changes.outputs.full == 'true' }}
     uses: ./.github/workflows/checks.yml # zizmor: ignore[self-repository] -- actionlint requires the documented relative syntax
   packages:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     uses: ./.github/workflows/packages.yml # zizmor: ignore[self-repository] -- actionlint requires the documented relative syntax
 
   passed:
     if: always()
-    needs: [checks, packages]
+    needs: [changes, checks, packages]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Require code and native package checks
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require selected validation
         env:
+          SELECTION: ${{ needs.changes.result }}
+          FULL: ${{ needs.changes.outputs.full }}
           CHECKS: ${{ needs.checks.result }}
           PACKAGES: ${{ needs.packages.result }}
-        run: test "$CHECKS" = success && test "$PACKAGES" = success
+        run: python3 scripts/ci-policy.py gate --full "$FULL" --required "$SELECTION" --required "$CHECKS" --conditional "$PACKAGES"
