@@ -2,6 +2,11 @@ name: checks
 
 on:
   workflow_call:
+    inputs:
+      full_tests:
+        description: Run the full platform and recognition test matrix
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -22,6 +27,7 @@ jobs:
           version: "0.13.9"
           enable-cache: false
       - run: uv sync --locked
+      - run: uv run --locked pytest tests/test_ci_policy.py
       - run: uv run --locked ruff check src scripts tests
       - run: uv run --locked ruff format --check scripts/*.py tests
       - run: uv run --locked python scripts/check-release.py
@@ -40,6 +46,7 @@ jobs:
           uv run --locked python scripts/check-dist.py
 
   tests:
+    if: inputs.full_tests
     env:
       UV_PYTHON: ${{ matrix.python }}
       HF_HUB_DISABLE_TELEMETRY: "1"
@@ -113,8 +120,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Require all checks
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require selected checks
         env:
+          FULL: ${{ inputs.full_tests }}
           QUALITY: ${{ needs.quality.result }}
           TESTS: ${{ needs.tests.result }}
-        run: test "$QUALITY" = success && test "$TESTS" = success
+        run: python3 scripts/ci-policy.py gate --full "$FULL" --required "$QUALITY" --conditional "$TESTS"
