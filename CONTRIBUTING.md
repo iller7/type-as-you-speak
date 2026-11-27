@@ -2,7 +2,7 @@
 
 Read [AGENTS.md](AGENTS.md) for project-wide guidance and [TODO.md](TODO.md) for the roadmap to GitHub Issues, which owns priorities, acceptance criteria and live status. Record completion evidence and remaining verification gaps in the linked issue. Local agents can use the [Python desktop guide](.agents/guides/python-desktop.md) without a cloud LLM provider. If the local harness does not load AGENTS.md automatically, include it in the initial project context.
 
-Use Python 3.14 for development. We test Python 3.11–3.14 in the shared CI matrix and Python 3.15 in the Fedora 45 RPM lane using Fedora's native ONNX Runtime. Standard PyPI-only environments still need Python 3.11–3.14 because ONNX Runtime has no cp315 wheels. `mise install` supplies pinned developer tools; alternatively install the versions in `mise.toml` yourself.
+Use Python 3.14 for development. We test Python 3.11–3.14 in the shared CI matrix and Python 3.15 in the Fedora 45 RPM lane using Fedora's native ONNX Runtime. Standard PyPI-only environments still need Python 3.11–3.14 because ONNX Runtime has no cp315 wheels. Use uv for local syncs (CI pins uv 0.13.9), e.g. `uv sync --locked --extra gui`.
 
 ```sh
 make setup
