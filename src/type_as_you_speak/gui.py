@@ -24,7 +24,7 @@ import sys
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QTimer, QUrl
+from PySide6.QtCore import QEvent, QSocketNotifier, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QIcon, Qt
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDoubleSpinBox,
@@ -38,6 +38,7 @@ import tomlkit
 from . import __version__
 from . import cli
 from . import privacy
+from . import single_instance
 from .config import load_config, user_config_path
 
 # Spin-box ranges (key -> (min, max, single-step)).
@@ -1042,11 +1043,34 @@ class SettingsWindow(QMainWindow):
         self._update_status()
 
 
+def _activate_window(win: SettingsWindow) -> None:
+    """Owner side of the handshake: a second `tays gui` launch connected
+    and asked to activate — bring this window to the front."""
+    if single_instance.accept_once():
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
+
 def main() -> int:
+    # Single instance: a second launch asks the first to come forward and
+    # exits at once, instead of opening another settings window.
+    if not single_instance.acquire():
+        print("type-as-you-speak: settings window already open — "
+              "bringing it to the front.")
+        return 0
     app = QApplication.instance() or QApplication(sys.argv)
     win = SettingsWindow()
     # Size the window to its content — with the compact tabs a fixed size
     # leaves an empty band at the bottom.
     win.adjustSize()
+    fd = single_instance.server_fd()
+    if fd is not None:
+        # Parented to the app so PySide keeps the notifier alive.
+        notifier = QSocketNotifier(fd, QSocketNotifier.Type.Read, app)
+        notifier.activated.connect(lambda: _activate_window(win))
     win.show()
-    return app.exec()
+    try:
+        return app.exec()
+    finally:
+        single_instance.release()

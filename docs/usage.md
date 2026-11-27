@@ -56,9 +56,8 @@ Details:
 
 For an always-present mic icon in your panel — no window, no extra process (it runs inside `plasmashell`, and drives `tays status --json` / `tays toggle` as short-lived commands):
 
-- **Grey mic icon** while stopped, **red** while the session is live.
-- **Left-click** — status (model + where it's running — GPU name, or the CPU name on CPU) with Start/Stop and Settings; if an action fails, the popup says why instead of doing nothing.
-- **Right-click** — Start/Stop (flips with the live state), Settings.
+- **Grey mic icon** while stopped, **red** while the session is live; the tooltip shows the model and where it's running (GPU name, or the CPU name on CPU).
+- **Click (left or right)** — one short menu: Start/Stop (flips with the live state), Settings…, and the project page.
 
 Install it (needs the app installed as above — the applet finds `tays` in your usual locations; the mic icons go into your icon theme, where Plasma looks for applet icons):
 

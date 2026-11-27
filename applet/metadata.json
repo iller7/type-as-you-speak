@@ -8,7 +8,7 @@
             }
         ],
         "Category": "System Information",
-        "Description": "type-as-you-speak — speak, and it types into your window. The icon is grey while stopped and red while the dictation session is live. Left-click for status and start/stop; right-click for the full menu.",
+        "Description": "type-as-you-speak — speak, and it types into your window. The icon is grey while stopped and red while the dictation session is live; the tooltip shows the model and device. Clicking opens a short menu: start/stop, settings, and the project page.",
         "Icon": "type-as-you-speak",
         "Id": "org.iller7.tays",
         "License": "AGPL-3.0-only",

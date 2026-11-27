@@ -5,9 +5,10 @@
 // red while it is live. Both icons are installed into the icon theme
 // (hicolor) — that is where Plasma looks for applet icons.
 //
-// Left-click: status (model + where it is running) with Start/Stop,
-// Settings, and — when an action fails — the reason. Right-click:
-// Start/Stop + Settings, nothing else.
+// Clicking the icon (left or right) opens one short menu: Start/Stop,
+// Settings…, and the project page. There is deliberately no popup: the
+// state is carried by the icon and the tooltip, and command failures are
+// logged to the journal instead of shown in a window.
 //
 // State is polled from `tays status --json` every two seconds, so the icon
 // mirrors a session started from anywhere (CLI, GUI, or here).
@@ -19,28 +20,22 @@
 // but makes the source unique — `tays toggle #42` still runs `tays toggle`.
 //
 // Settings open via `tays gui --detach`: the CLI launches the window in its
-// own session and returns at once, so this applet is never held "busy" for
-// the lifetime of the window. A 20-second watchdog clears `busy` anyway —
-// the buttons must never die.
+// own session and returns at once. The GUI is single-instance, so a second
+// launch just brings the existing window to the front.
 
 import QtQuick
-import QtQuick.Layouts
 import org.kde.plasma.plasmoid
 import org.kde.plasma.core as PlasmaCore
-import org.kde.plasma.components as PlasmaComponents3
 import org.kde.plasma.plasma5support as Plasma5Support
-import org.kde.kirigami as Kirigami
 
 PlasmoidItem {
     id: root
 
     // ----- state -------------------------------------------------------------
     property bool running: false
-    property string phase: "stopped"
-    property bool busy: false            // a start/stop/settings command is in flight
+    property string phase: "stopped"     // stopped | preparing | listening
     property bool statusOk: false        // the last status poll produced JSON
     property string detail: ""          // e.g. "medium.en on NVIDIA GeForce RTX 5090 (CUDA)"
-    property string lastError: ""       // shown in the popup when an action fails
     property int nonce: 0
 
     // ----- command resolution ------------------------------------------------
@@ -100,26 +95,19 @@ PlasmoidItem {
                 return;
             }
 
-            // One-shot actions (toggle / gui).
+            // One-shot actions (toggle / gui): there is no popup to show a
+            // failure in, so record it in the journal and move on.
             const exit = data["exit code"] === undefined ? -1 : parseInt(data["exit code"], 10);
             const what = String(source).indexOf(" toggle") !== -1
                 ? i18n("Start/Stop") : i18n("Settings");
             if (exit === 0) {
-                root.lastError = "";
                 console.log("type-as-you-speak applet: " + what + " ok");
             } else {
-                let msg = "";
-                try {
-                    const err = String(data["stderr"] || "").trim();
-                    if (err.length > 0) {
-                        msg = " — " + err.split("\n").pop().slice(0, 120);
-                    }
-                } catch (e) {}
-                root.lastError = i18n("%1 failed (exit code %2).", what, exit) + msg;
-                console.warn("type-as-you-speak applet: " + what + " exit=" + exit +
-                             " out=" + String(data["stdout"] || "").slice(0, 200));
+                let err = "";
+                try { err = String(data["stderr"] || "").trim().split("\n").pop(); } catch (e) {}
+                console.warn("type-as-you-speak applet: " + what + " failed (exit " + exit + ")"
+                             + (err.length > 0 ? " — " + err.slice(0, 200) : ""));
             }
-            root.busy = false;
         }
     }
 
@@ -138,23 +126,7 @@ PlasmoidItem {
         interval: 2000
         running: true
         repeat: true
-        onTriggered: {
-            if (!root.busy) {
-                runOnce(root.baseCommand() + " status --json");
-            }
-        }
-    }
-
-    // If a command never reports back, don't leave the applet stuck — the
-    // buttons must stay usable.
-    Timer {
-        id: busyWatchdog
-        interval: 20000
-        running: root.busy
-        onTriggered: {
-            root.busy = false;
-            console.warn("type-as-you-speak applet: command timed out — clearing busy");
-        }
+        onTriggered: runOnce(root.baseCommand() + " status --json")
     }
 
     function handleStatus(json) {
@@ -203,14 +175,10 @@ PlasmoidItem {
 
     // ----- actions -------------------------------------------------------------
     function toggle() {
-        if (root.busy) return;
-        root.busy = true;
         runOnce(root.baseCommand() + " toggle");
     }
 
     function runGui() {
-        if (root.busy) return;
-        root.busy = true;
         runOnce(root.baseCommand() + " gui --detach");
     }
 
@@ -232,7 +200,7 @@ PlasmoidItem {
             : i18n("Stopped (status unavailable)");
     }
 
-    // ----- right-click menu (kept deliberately short) -------------------------
+    // ----- menu (both left- and right-click open it) -----------------------------
     Plasmoid.contextualActions: [
         PlasmaCore.Action {
             text: root.running ? i18n("Stop dictation") : i18n("Start dictation")
@@ -243,86 +211,16 @@ PlasmoidItem {
             text: i18n("Settings…")
             icon.name: "configure"
             onTriggered: root.runGui()
+        },
+        PlasmaCore.Action {
+            text: "github.com/iller7/type-as-you-speak"
+            icon.name: "applications-internet"
+            onTriggered: Qt.openUrlExternally("https://github.com/iller7/type-as-you-speak")
         }
     ]
 
     Component.onCompleted: {
         // No applet-specific configuration UI; drop the generic entry.
         Plasmoid.removeInternalAction("configure");
-    }
-
-    // ----- left-click popup (compact) -------------------------------------------
-    fullRepresentation: Item {
-        implicitWidth: Kirigami.Units.gridUnit * 24
-        implicitHeight: Kirigami.Units.gridUnit * 13
-
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Kirigami.Units.smallSpacing * 2
-            spacing: Kirigami.Units.smallSpacing
-
-            RowLayout {
-                spacing: Kirigami.Units.smallSpacing
-                Rectangle {
-                    width: Kirigami.Units.gridUnit / 2
-                    height: Kirigami.Units.gridUnit / 2
-                    radius: width / 2
-                    color: root.running ? "#E2574C" : "#8A8A9C"
-                }
-                PlasmaComponents3.Label {
-                    text: root.running
-                        ? (root.phase === "listening" ? i18n("Listening") : i18n("Preparing"))
-                        : i18n("Stopped")
-                    font.bold: true
-                    Layout.fillWidth: true
-                }
-            }
-
-            PlasmaComponents3.Label {
-                text: root.statusOk && root.detail.length > 0
-                    ? root.detail
-                    : (root.statusOk
-                        ? i18n("checking status…")
-                        : i18n("No status yet — try 'tays status' in a terminal."))
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                opacity: 0.85
-            }
-
-            PlasmaComponents3.Button {
-                text: root.running ? i18n("Stop") : i18n("Start")
-                Layout.fillWidth: true
-                implicitHeight: Kirigami.Units.gridUnit * 4
-                padding: Kirigami.Units.smallSpacing / 2
-                onClicked: root.toggle()
-            }
-
-            PlasmaComponents3.Button {
-                text: i18n("Settings…")
-                Layout.fillWidth: true
-                implicitHeight: Kirigami.Units.gridUnit * 4
-                padding: Kirigami.Units.smallSpacing / 2
-                onClicked: root.runGui()
-            }
-
-            PlasmaComponents3.Label {
-                visible: root.lastError.length > 0
-                text: root.lastError
-                Layout.fillWidth: true
-                wrapMode: Text.WordWrap
-                color: "#B04A42"
-                font.pixelSize: Math.floor(Kirigami.Units.fontPixelSize) - 1
-            }
-
-            // Kirigami.LinkButton (not PlasmaComponents3.LinkButton): the Plasma
-            // 6 PC3 compat module does not export LinkButton on all distros, so
-            // the applet would fail to compile ("is not a type").
-            Kirigami.LinkButton {
-                text: "github.com/iller7/type-as-you-speak"
-                Layout.alignment: Qt.AlignLeft
-                Layout.topMargin: Kirigami.Units.smallSpacing / 2
-                onClicked: Qt.openUrlExternally("https://github.com/iller7/type-as-you-speak")
-            }
-        }
     }
 }
