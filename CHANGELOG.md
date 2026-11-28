@@ -2,6 +2,20 @@
 
 All notable changes to **type-as-you-speak** are documented here. New entries are generated automatically by [release-please](https://github.com/googleapis/release-please) from the Conventional Commit titles of merged pull requests; the same entry becomes the GitHub release notes, so the two never drift. The project follows [Semantic Versioning](https://semver.org/). Do not hand-edit entries above the pre-automation history.
 
+## [0.5.4](https://github.com/iller7/type-as-you-speak/compare/v0.5.3...v0.5.4) (2026-11-28)
+
+
+### Bug Fixes
+
+* keep diagnostic metadata private ([#67](https://github.com/iller7/type-as-you-speak/issues/67)) ([81e398d](https://github.com/iller7/type-as-you-speak/commit/81e398d6651b233cafa3978d1afcad5a0fe33931))
+* report dictation readiness accurately ([#65](https://github.com/iller7/type-as-you-speak/issues/65)) ([c54c564](https://github.com/iller7/type-as-you-speak/commit/c54c564dd706728f76534ccd0456293478a6f4fb))
+* resume verified draft release uploads ([#69](https://github.com/iller7/type-as-you-speak/issues/69)) ([8789c6a](https://github.com/iller7/type-as-you-speak/commit/8789c6a07363be60a5598fb7de2060b74fdee60a))
+
+
+### Documentation
+
+* explain CI validation scope ([#63](https://github.com/iller7/type-as-you-speak/issues/63)) ([408be0d](https://github.com/iller7/type-as-you-speak/commit/408be0d06355bd95b515459c4c3688b677736547))
+
 ## 0.5.2 – 0.5.3 (2026-11-24)
 
 Recorded before release-please automation; v0.5.2 was withdrawn and replaced by v0.5.3.

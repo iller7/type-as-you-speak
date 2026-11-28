@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "type-as-you-speak"
-version = "0.5.3"
+version = "0.5.4"
 description = "Privacy-first real-time dictation for focused desktop apps, with strict offline Linux integration."
 readme = "README.md"
 requires-python = ">=3.11,<3.16"
