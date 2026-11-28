@@ -2,7 +2,12 @@
   "packages": {
     ".": {
       "release-type": "python",
-      "draft": true
+      "draft": true,
+      "extra-files": [
+        {"path": "packaging/fedora/type-as-you-speak.spec", "type": "generic"},
+        {"path": "packaging/aur/PKGBUILD.in", "type": "generic"},
+        {"path": "data/type-as-you-speak.metainfo.xml", "type": "generic"}
+      ]
     }
   }
 }
