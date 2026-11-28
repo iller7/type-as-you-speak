@@ -4,7 +4,7 @@
 
 Name:           type-as-you-speak
 # x-release-please-start-version
-Version:        0.5.3
+Version:        0.5.4
 # x-release-please-end
 Release:        1%{?dist}
 Summary:        Local dictation for Linux (Wayland and X11)
