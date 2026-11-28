@@ -1,10 +1,10 @@
 # Changelog
 
-Current and future changelogs are [generated automatically on GitHub Releases](https://github.com/iller7/type-as-you-speak/releases) from merged pull requests. No new handwritten entries are required here. The entries below are preserved historical notes.
+All notable changes to **type-as-you-speak** are documented here. New entries are generated automatically by [release-please](https://github.com/googleapis/release-please) from the Conventional Commit titles of merged pull requests; the same entry becomes the GitHub release notes, so the two never drift. The project follows [Semantic Versioning](https://semver.org/). Do not hand-edit entries above the pre-automation history.
 
-All notable changes to **type-as-you-speak** are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows [Semantic Versioning](https://semver.org/).
+## 0.5.2 – 0.5.3 (2026-11-24)
 
-## [Unreleased]
+Recorded before release-please automation; v0.5.2 was withdrawn and replaced by v0.5.3.
 
 ### Security
 

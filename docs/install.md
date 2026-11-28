@@ -59,7 +59,7 @@ gh attestation verify type-as-you-speak_0.5.3_ubuntu24.04_amd64.deb --repo iller
 sudo apt install ./type-as-you-speak_0.5.3_ubuntu24.04_amd64.deb
 ```
 
-For a matching Fedora RPM, verify the selected file the same way and install it with `sudo dnf install ./SELECTED_PACKAGE.rpm`. Run commands separately and stop on any verification failure. GitHub CLI verification requires a current `gh`; a checksum confirms matching bytes, while attestation verification also checks the producing repository/workflow. Neither replaces desktop compatibility testing.
+For a matching Fedora RPM, verify the selected file the same way and install it with `sudo dnf install ./SELECTED_PACKAGE.rpm`. Run commands separately and stop on any verification failure. Note the `--signer-workflow` path: this v0.5.3 example was signed by `.github/workflows/release.yml`; from v0.5.4 on the publish workflow is `.github/workflows/publish.yml`, so use that path when verifying newer releases. GitHub CLI verification requires a current `gh`; a checksum confirms matching bytes, while attestation verification also checks the producing repository/workflow. Neither replaces desktop compatibility testing.
 
 Package-channel builds are currently **validated for CPU inference**. Building without a GPU does not establish whether the installed backend can accelerate on a target machine; packaged GPU operation remains unverified. Source installs allow you to supply compatible GPU runtime libraries, but still need the [explicit hardware recognition check](testing.md#explicit-gpu-recognition).
 

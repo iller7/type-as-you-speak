@@ -1,4 +1,4 @@
-name: release
+name: publish
 
 on:
   push:
@@ -76,7 +76,7 @@ jobs:
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/*
-      - name: Create release with verified tag and assets
+      - name: Upload the verified assets and seal the release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

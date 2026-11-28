@@ -17,7 +17,6 @@ ROOT_DOCUMENTS = {
     "SECURITY.md",
     "TODO.md",
     "CHANGELOG.md",
-    "RELEASES.md",
 }
 DOCUMENT_SUFFIXES = {
     ".md",
