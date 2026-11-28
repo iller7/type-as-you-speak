@@ -83,4 +83,4 @@ jobs:
         if: steps.pr.outputs.number != ''
         env:
           PR_NUMBER: ${{ steps.pr.outputs.number }}
-        run: gh pr merge "${PR_NUMBER}" --merge --auto
+        run: gh pr merge "${PR_NUMBER}" --squash --auto
