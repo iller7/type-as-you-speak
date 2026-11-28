@@ -48,7 +48,7 @@ jobs:
         run: |
           set -euo pipefail
           number="$(gh pr list --head 'release-please--branches--master' \
-            --state open --json number --jq '.[0] // empty')"
+            --state open --json number --jq '.[0].number // empty')"
           if [ -z "${number}" ]; then
             echo 'No open release PR — nothing to finish.'
             exit 0
