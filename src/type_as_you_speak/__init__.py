@@ -16,4 +16,4 @@ from .privacy import configure_environment as _configure_environment
 
 _configure_environment()
 
-__version__ = "0.5.3"
+__version__ = "0.5.3"  # x-release-please-version

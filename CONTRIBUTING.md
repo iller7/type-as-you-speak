@@ -16,7 +16,7 @@ make package-rpm
 
 The K8s repository's practices are adapted here as pinned tools, dependency automation, ownership and explicit validation/rollback notes. Dependabot maintains uv, Actions and container dependencies without requiring a separate Renovate installation. Desktop release checks also need real installed packages, AppStream/desktop metadata, a GUI launch and microphone/input testing.
 
-Use small pull requests with a Conventional Commit title and an associated GitHub issue. Use `Refs #123` for partial progress and `Closes #123` only when all acceptance criteria are met. Labels organise the automatically generated release notes; unlabelled PRs remain in the catch-all category. Add regression tests for behaviour changes. Describe test results, compatibility, privacy implications and rollback in the PR template. Do not create agent plans or workflow state in the repository. Do not add transcript/audio fixtures from real users.
+Use small pull requests with a Conventional Commit title and an associated GitHub issue. Use `Refs #123` for partial progress and `Closes #123` only when all acceptance criteria are met. Release notes are generated from the release-please changelog entry, so the PR title decides how the change is grouped; labels keep working for triage. Add regression tests for behaviour changes. Describe test results, compatibility, privacy implications and rollback in the PR template. Do not create agent plans or workflow state in the repository. Do not add transcript/audio fixtures from real users.
 
 See the [testing matrix](docs/testing.md) for Linux desktop families, Windows/macOS targets, automated coverage and hardware-dependent gaps. The product target spans all three operating systems; current desktop support and future targets are different claims.
 
@@ -35,6 +35,17 @@ Keep transcription and configuration independent of desktop integrations. Future
 Create a PR for completed work rather than leaving it only on a feature branch. When merging is authorised, use normal merge or auto-merge after required checks pass; authors cannot approve their own PRs. Confirm the merged state and sync master before starting the next piece of work. Do not bypass protections or fabricate an approval.
 
 Write Markdown paragraphs and list items on single source lines, with visual wrapping in the editor. The repository configures Prettier to avoid hard wrapping. Indent two spaces by default, four for Python, and use tabs in Makefiles. Focused user guides live in docs/; the README should remain a short entry point.
+
+## Releases
+
+Releases run on [release-please](https://github.com/googleapis/release-please), the standard GitHub release automation:
+
+1. Merged pull requests with Conventional Commit titles accumulate releasable work. After each merge the `release-please` workflow opens or updates one release PR: the next Semantic Versioning number derived from the commit types (`fix` → patch, `feat` → minor, breaking → major), every version file bumped, and the new `CHANGELOG.md` section.
+2. The same workflow syncs `uv.lock` to the new version and merges the release PR automatically as soon as the required checks pass — CI is the release gate.
+3. On merge, release-please creates the GitHub Release **as a draft** with the release notes (the same content as the new changelog section) and pushes the `vX.Y.Z` tag.
+4. The tag triggers the `publish` workflow: shared checks, wheel/sdist/`.deb`/`.rpm` builds, `SHA256SUMS` and GitHub build provenance. Only when every asset is verified does it upload them and seal the draft — a release is public only when complete, and a published release is never modified.
+
+No version numbers, notes or tags are typed by hand. To force a release or a specific version: Actions → `release-please` → Run workflow (optionally with `release-as`). Rollback policy: never replace a published artifact — ship a new patch. AUR publication (rendering `@SOURCE_SHA256@` from the published source archive and submitting the recipe) and Flathub/Copr/PyPI publication remain separate explicit steps after a release.
 
 ## Licensing contributions
 

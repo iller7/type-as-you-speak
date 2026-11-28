@@ -3,7 +3,9 @@
 %global native_system_requires dbus-libs fontconfig libstdc++ mesa-libEGL libglvnd-opengl libglvnd-glx libxkbcommon-x11 xcb-util-cursor
 
 Name:           type-as-you-speak
+# x-release-please-start-version
 Version:        0.5.3
+# x-release-please-end
 Release:        1%{?dist}
 Summary:        Local dictation for Linux (Wayland and X11)
 License:        AGPL-3.0-only

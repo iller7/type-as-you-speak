@@ -1,0 +1,86 @@
+name: release-please
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      release-as:
+        description: "Version to release as (empty = derive from the merged work)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        with:
+          release-as: ${{ github.event.inputs['release-as'] || '' }}
+
+  # Finishes what the action started: uv.lock must track the bumped project
+  # version (uv lock --check proves CI's `uv sync --locked` would reject the
+  # stale one), then the release is merged as soon as the required checks pass.
+  finish-release:
+    needs: release-please
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Find the open release PR
+        id: pr
+        run: |
+          set -euo pipefail
+          number="$(gh pr list --head 'release-please--branches--master' \
+            --state open --json number --jq '.[0] // empty')"
+          if [ -z "${number}" ]; then
+            echo 'No open release PR — nothing to finish.'
+            exit 0
+          fi
+          echo "number=${number}" >> "${GITHUB_OUTPUT}"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.pr.outputs.number != ''
+        with:
+          ref: release-please--branches--master
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        if: steps.pr.outputs.number != ''
+        with:
+          version: "0.13.9"
+          enable-cache: false
+      - name: Sync uv.lock to the bumped project version
+        if: steps.pr.outputs.number != ''
+        run: |
+          set -euo pipefail
+          uv lock
+          if git diff --quiet -- uv.lock; then
+            echo 'uv.lock already in sync.'
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add uv.lock
+            git commit -m 'build: sync uv.lock with the release version'
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+              'HEAD:release-please--branches--master'
+          fi
+      - name: Auto-merge the release once the required checks pass
+        if: steps.pr.outputs.number != ''
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: gh pr merge "${PR_NUMBER}" --merge --auto
